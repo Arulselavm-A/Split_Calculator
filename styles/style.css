@@ -258,7 +258,17 @@ h2 {
   border: 1px solid rgba(34, 197, 94, 0.2);
 }
 
-.whatsapp-icon {
+.googlepay-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.18), rgba(96, 165, 250, 0.12));
+  color: #1d4ed8;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.whatsapp-icon,
+.googlepay-icon {
   font-size: 1.1rem;
 }
 
@@ -425,12 +435,21 @@ h2 {
 
 .person-summary-header {
   margin-top: 20px;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   padding-top: 2px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
+}
+
+.summary-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .person-summary-header h3 {
@@ -502,16 +521,16 @@ h2 {
   height: 220px !important;
   overflow-x: auto !important;
   overflow-y: hidden !important;
-  padding: 12px 8px 10px;
+  padding: 12px 10px 12px;
   scrollbar-width: thin;
   scrollbar-color: rgba(139, 92, 246, 0.35) rgba(139, 92, 246, 0.08);
   display: flex !important;
   flex-direction: row !important;
   flex-wrap: nowrap !important;
   align-items: stretch;
-  gap: 12px;
-  background: linear-gradient(180deg, rgba(239, 236, 255, 0.26), rgba(255, 255, 255, 0.12));
-  border-radius: 18px;
+  gap: 14px;
+  background: linear-gradient(180deg, rgba(239, 236, 255, 0.22), rgba(255, 255, 255, 0.1));
+  border-radius: 20px;
   border: 1px solid rgba(139, 92, 246, 0.08);
 }
 
@@ -524,7 +543,7 @@ h2 {
   flex-wrap: nowrap !important;
   overflow-x: auto !important;
   overflow-y: hidden !important;
-  padding: 2px 0;
+  padding: 2px 2px 4px;
 }
 
 .section-subheader {
@@ -576,20 +595,21 @@ h2 {
 }
 
 .person-row {
-  width: 260px !important;
-  min-width: 260px !important;
-  height: 180px !important;
-  flex: 0 0 260px !important;
+  width: 250px !important;
+  min-width: 250px !important;
+  min-height: 180px !important;
+  height: auto !important;
+  flex: 0 0 250px !important;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 14px 16px;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 14px 14px 12px;
   border-radius: 20px;
-  background: linear-gradient(135deg, rgba(255,255,255,0.94), rgba(242, 238, 255, 0.96));
+  background: linear-gradient(135deg, rgba(255,255,255,0.97), rgba(244, 239, 255, 0.96));
   border: 1px solid rgba(139, 92, 246, 0.12);
-  box-shadow: 0 12px 24px rgba(139, 92, 246, 0.08), inset 0 1px 0 rgba(255,255,255,0.8);
+  box-shadow: 0 18px 26px rgba(139, 92, 246, 0.06), inset 0 1px 0 rgba(255,255,255,0.8);
   flex-shrink: 0;
   position: relative;
   overflow: hidden;
@@ -600,48 +620,65 @@ h2 {
   position: absolute;
   inset: 0 auto 0 0;
   width: 5px;
-  background: linear-gradient(180deg, rgba(139, 92, 246, 0.9), rgba(103, 183, 255, 0.8), rgba(103, 215, 181, 0.75));
+  background: linear-gradient(180deg, rgba(139, 92, 246, 0.9), rgba(103, 183, 255, 0.8), rgba(83, 210, 178, 0.75));
 }
 
 .person-row .person-name {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
   font-weight: 800;
   font-size: 1rem;
   color: var(--text);
-  letter-spacing: 0.01em;
+  letter-spacing: 0.02em;
   word-break: break-word;
-  padding-left: 8px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(103, 183, 255, 0.1));
+  border: 1px solid rgba(139, 92, 246, 0.08);
+  border-radius: 12px;
+  padding: 9px 10px;
+  margin-left: 4px;
 }
 
 .person-row .person-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   color: var(--muted);
-  font-size: 1.05rem;
-  line-height: 1.5;
+  font-size: 0.88rem;
+  line-height: 1.4;
   word-break: break-word;
-  padding-left: 8px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(139, 92, 246, 0.06);
+  border-radius: 12px;
+  padding: 8px 10px;
+  margin-left: 4px;
+}
+
+.person-row .person-meta strong {
+  font-size: 0.97rem;
+  color: var(--text);
+  font-weight: 700;
 }
 
 .person-row .amount-pill {
-  margin-top: auto;
-  background: linear-gradient(135deg, rgba(103, 215, 181, 0.22), rgba(161, 240, 214, 0.28));
-  color: #1c6c57;
+  margin-top: 2px;
+  background: linear-gradient(135deg, rgba(60, 200, 150, 0.16), rgba(147, 255, 215, 0.24));
+  color: #155d45;
   border-radius: 999px;
-  padding: 8px 12px;
-  font-size: 0.76rem;
-  font-weight: 700;
+  padding: 9px 12px;
+  font-size: 0.75rem;
+  font-weight: 800;
   white-space: nowrap;
   width: fit-content;
-  margin-left: 8px;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
+  margin-left: 4px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.75);
 }
 
 .person-row .amount-pill.negative {
-  background: linear-gradient(135deg, rgba(239, 107, 123, 0.18), rgba(255, 203, 211, 0.2));
-  color: #ae4051;
-}
-
-.person-row .amount-pill.negative {
-  background: linear-gradient(135deg, rgba(239, 107, 123, 0.16), rgba(255, 203, 211, 0.2));
-  color: #ae4051;
+  background: linear-gradient(135deg, rgba(239, 107, 123, 0.15), rgba(255, 203, 211, 0.2));
+  color: #9f3547;
 }
 
 .chart-panel {

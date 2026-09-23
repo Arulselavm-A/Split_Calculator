@@ -290,10 +290,10 @@ function computeSummary() {
   `;
 
   personBreakdown.querySelectorAll('.person-row').forEach((row) => {
-    row.style.width = '260px';
-    row.style.minWidth = '260px';
+    row.style.width = '250px';
+    row.style.minWidth = '250px';
     row.style.height = '180px';
-    row.style.flex = '0 0 260px';
+    row.style.flex = '0 0 250px';
     row.style.gridColumn = 'span 1';
   });
 
@@ -563,6 +563,20 @@ function getPersonBalance(name) {
   return paid - share;
 }
 
+function getDebtorsForMaster() {
+  const masterName = getMasterMemberName();
+  if (!masterName) return [];
+
+  return getMemberNameList()
+    .filter((memberName) => memberName !== masterName)
+    .map((memberName) => ({
+      name: memberName,
+      balance: getPersonBalance(memberName)
+    }))
+    .filter((member) => member.balance < 0)
+    .sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance));
+}
+
 function buildPersonalMessage(name) {
   const totalSpend = state.expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
   const masterName = getMasterMemberName();
@@ -672,6 +686,31 @@ function shareSplitOnWhatsApp() {
   });
 }
 
+function openGooglePaySplit() {
+  const masterName = getMasterMemberName();
+  const debtors = getDebtorsForMaster();
+
+  if (!masterName || debtors.length === 0) {
+    window.open('https://pay.google.com/', '_blank');
+    return;
+  }
+
+  const total = debtors.reduce((sum, member) => sum + Math.abs(member.balance), 0);
+  const lines = [
+    `*${state.title || defaultTitle}*`,
+    '',
+    `Master: ${masterName}`,
+    `Receivable total: ${formatCurrency(total)}`,
+    '',
+    ...debtors.map((member) => `${member.name}: pay ${formatCurrency(Math.abs(member.balance))}`),
+    '',
+    'Use Google Pay split with only these members.'
+  ];
+
+  const summary = encodeURIComponent(lines.join('\n'));
+  window.open(`https://pay.google.com/?text=${summary}`, '_blank');
+}
+
 function exportToExcel() {
   const workbook = XLSX.utils.book_new();
 
@@ -720,6 +759,7 @@ function exportToExcel() {
 tripTitleInput.addEventListener('input', updateTitle);
 document.getElementById('addPersonBtn').addEventListener('click', addPerson);
 document.getElementById('shareWhatsAppBtn').addEventListener('click', shareSplitOnWhatsApp);
+document.getElementById('createGooglePaySplitBtn').addEventListener('click', openGooglePaySplit);
 resetAllBtn.addEventListener('click', resetAllState);
 chartTypeButtons.forEach((button) => {
   button.addEventListener('click', () => setChartType(button.dataset.chartType));
