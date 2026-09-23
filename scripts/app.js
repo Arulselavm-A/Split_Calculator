@@ -1,5 +1,5 @@
 const defaultTitle = 'Travel Budget';
-const members = ['ARUL', 'Veer', 'Kandy'];
+const members = [];
 const defaultExpenses = [];
 const STORAGE_KEY = 'split-calculator-state-v1';
 
@@ -14,6 +14,8 @@ let activeChartType = 'doughnut';
 
 const tripTitleInput = document.getElementById('tripTitle');
 const personNameInput = document.getElementById('personName');
+const personCountrySelect = document.getElementById('personCountry');
+const personMobileInput = document.getElementById('personMobile');
 const peopleList = document.getElementById('peopleList');
 const expenseForm = document.getElementById('expenseForm');
 const expenseTitleInput = document.getElementById('expenseTitle');
@@ -39,6 +41,30 @@ function formatCurrency(value) {
     currency: 'INR',
     maximumFractionDigits: 2
   }).format(value || 0);
+}
+
+function normalizeMember(member) {
+  if (!member || typeof member !== 'object') {
+    return { name: String(member || '').trim(), country: 'IN', mobile: '' };
+  }
+
+  return {
+    name: String(member.name || '').trim(),
+    country: String(member.country || 'IN').trim() || 'IN',
+    mobile: String(member.mobile || '').trim()
+  };
+}
+
+function getMemberNameList() {
+  return state.members.map((member) => normalizeMember(member).name);
+}
+
+function getMemberByName(name) {
+  return state.members.find((member) => normalizeMember(member).name.toLowerCase() === String(name).trim().toLowerCase());
+}
+
+function getMasterMemberName() {
+  return getMemberNameList()[0] || '';
 }
 
 function loadSavedState() {
@@ -76,15 +102,15 @@ function hydrateStateFromStorage() {
 
   if (!savedState) {
     state.title = defaultTitle;
-    state.members = [...members];
+    state.members = [...members].map((member) => normalizeMember(member));
     state.expenses = [...defaultExpenses];
     return;
   }
 
   state.title = savedState.title || defaultTitle;
   state.members = Array.isArray(savedState.members) && savedState.members.length > 0
-    ? savedState.members
-    : [...members];
+    ? savedState.members.map((member) => normalizeMember(member)).filter((member) => member.name)
+    : [...members].map((member) => normalizeMember(member));
   state.expenses = Array.isArray(savedState.expenses) ? savedState.expenses : [...defaultExpenses];
 }
 
@@ -99,7 +125,7 @@ function getSelectedMembers() {
     .map((checkbox) => checkbox.value);
 
   if (selected.length === 0) {
-    return [...state.members];
+    return getMemberNameList();
   }
 
   return selected;
@@ -129,29 +155,38 @@ function renderPeopleList() {
     return;
   }
 
+  const masterName = getMasterMemberName();
+
   state.members.forEach((person) => {
+    const member = normalizeMember(person);
     const chip = document.createElement('div');
-    chip.className = 'person-chip';
+    const isMaster = member.name === masterName;
+    chip.className = `person-chip${isMaster ? ' master-person' : ''}`;
     chip.innerHTML = `
-      <span>${person}</span>
-      <button class="remove-btn" type="button" data-name="${person}" aria-label="Remove ${person}">×</button>
+      <div class="person-chip-content">
+        <span>${member.name}${isMaster ? ' ★' : ''}</span>
+        ${member.mobile ? `<small>${member.country || 'IN'} ${member.mobile}</small>` : ''}
+      </div>
+      <button class="remove-btn" type="button" data-name="${member.name}" aria-label="Remove ${member.name}">×</button>
     `;
     peopleList.appendChild(chip);
   });
 }
 
 function renderPayerOptions() {
-  expensePayerSelect.innerHTML = state.members
+  const memberNames = getMemberNameList();
+  expensePayerSelect.innerHTML = memberNames
     .map((person) => `<option value="${person}">${person}</option>`)
     .join('');
 
-  if (state.members.length > 0) {
-    expensePayerSelect.value = state.members[0];
+  if (memberNames.length > 0) {
+    expensePayerSelect.value = memberNames[0];
   }
 }
 
 function renderSplitOptions() {
-  memberSplitList.innerHTML = state.members
+  const memberNames = getMemberNameList();
+  memberSplitList.innerHTML = memberNames
     .map((person) => `
       <label class="split-option">
         <input type="checkbox" value="${person}" checked />
@@ -191,13 +226,13 @@ function renderExpenseTable() {
 }
 
 function computeSummary() {
-  const memberDetails = state.members.map((member) => {
+  const memberDetails = getMemberNameList().map((member) => {
     const paid = state.expenses
       .filter((expense) => expense.payer === member)
       .reduce((sum, expense) => sum + Number(expense.amount), 0);
 
     const share = state.expenses.reduce((sum, expense) => {
-      const splitMembers = expense.sharedWith.length > 0 ? expense.sharedWith : [...state.members];
+      const splitMembers = expense.sharedWith.length > 0 ? expense.sharedWith : getMemberNameList();
       if (splitMembers.includes(member)) {
         return sum + (Number(expense.amount) / splitMembers.length);
       }
@@ -398,11 +433,12 @@ function renderAll() {
 
 function resetAllState() {
   state.title = defaultTitle;
-  state.members = [...members];
+  state.members = [...members].map((member) => normalizeMember(member));
   state.expenses = [...defaultExpenses];
 
   tripTitleInput.value = defaultTitle;
   personNameInput.value = '';
+  personMobileInput.value = '';
   expenseForm.reset();
   splitModeSelect.value = 'selected';
   selectedSplitSummary.textContent = 'Selected: all members';
@@ -427,29 +463,43 @@ function setChartType(type) {
 
 function addPerson() {
   const name = personNameInput.value.trim();
+  const country = personCountrySelect.value || 'IN';
+  const mobile = personMobileInput.value.replace(/\D/g, '').slice(0, 10);
 
   if (!name) {
     personNameInput.focus();
     return;
   }
 
-  if (state.members.some((member) => member.toLowerCase() === name.toLowerCase())) {
+  if (country === 'IN' && !/^[0-9]{10}$/.test(mobile)) {
+    personMobileInput.focus();
+    personMobileInput.setCustomValidity('Enter a valid 10-digit mobile number');
+    personMobileInput.reportValidity();
+    return;
+  }
+
+  personMobileInput.setCustomValidity('');
+
+  if (state.members.some((member) => normalizeMember(member).name.toLowerCase() === name.toLowerCase())) {
     personNameInput.value = '';
+    personMobileInput.value = '';
     personNameInput.focus();
     return;
   }
 
-  state.members.push(name);
+  state.members.push({ name, country, mobile });
   personNameInput.value = '';
+  personMobileInput.value = '';
+  personCountrySelect.value = 'IN';
   renderAll();
 }
 
 function removePerson(name) {
-  state.members = state.members.filter((member) => member !== name);
+  state.members = state.members.filter((member) => normalizeMember(member).name !== name);
 
   state.expenses = state.expenses.map((expense) => ({
     ...expense,
-    payer: expense.payer === name ? state.members[0] || '' : expense.payer,
+    payer: expense.payer === name ? getMemberNameList()[0] || '' : expense.payer,
     sharedWith: expense.sharedWith.filter((member) => member !== name)
   }));
 
@@ -476,8 +526,9 @@ function addExpense(event) {
   }
 
   const splitMode = splitModeSelect.value;
+  const memberNames = getMemberNameList();
   const sharedWith = splitMode === 'all'
-    ? [...state.members]
+    ? [...memberNames]
     : getSelectedMembers();
 
   const newExpense = {
@@ -485,7 +536,7 @@ function addExpense(event) {
     title,
     amount,
     payer,
-    sharedWith: sharedWith.length > 0 ? sharedWith : [...state.members]
+    sharedWith: sharedWith.length > 0 ? sharedWith : [...memberNames]
   };
 
   state.expenses.push(newExpense);
@@ -499,16 +550,138 @@ function removeExpense(id) {
   renderAll();
 }
 
+function getPersonBalance(name) {
+  const paid = state.expenses
+    .filter((expense) => expense.payer === name)
+    .reduce((sum, expense) => sum + Number(expense.amount), 0);
+
+  const share = state.expenses.reduce((sum, expense) => {
+    const splitMembers = expense.sharedWith.length > 0 ? expense.sharedWith : getMemberNameList();
+    return splitMembers.includes(name) ? sum + (Number(expense.amount) / splitMembers.length) : sum;
+  }, 0);
+
+  return paid - share;
+}
+
+function buildPersonalMessage(name) {
+  const totalSpend = state.expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
+  const masterName = getMasterMemberName();
+  const balance = getPersonBalance(name);
+
+  if (!masterName) {
+    return [
+      `*${state.title || defaultTitle}*`,
+      '',
+      `Hi ${name}, add your group members first.`,
+      '',
+      `Total spend: ${formatCurrency(totalSpend)}`
+    ].join('\n');
+  }
+
+  if (name === masterName) {
+    const otherMembers = getMemberNameList().filter((memberName) => memberName !== masterName);
+    const debtor = otherMembers
+      .map((memberName) => ({ name: memberName, balance: getPersonBalance(memberName) }))
+      .filter((member) => member.balance < 0)
+      .sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance))[0];
+
+    const creditor = otherMembers
+      .map((memberName) => ({ name: memberName, balance: getPersonBalance(memberName) }))
+      .filter((member) => member.balance > 0)
+      .sort((a, b) => b.balance - a.balance)[0];
+
+    if (balance > 0) {
+      const payFrom = creditor ? creditor.name : 'the group';
+      return [
+        `*${state.title || defaultTitle}*`,
+        '',
+        `Hi ${name}, you should receive ${formatCurrency(Math.abs(balance))} from ${payFrom}.`,
+        '',
+        `Total spend: ${formatCurrency(totalSpend)}`
+      ].join('\n');
+    }
+
+    if (balance < 0) {
+      const payTo = debtor ? debtor.name : 'the group';
+      return [
+        `*${state.title || defaultTitle}*`,
+        '',
+        `Hi ${name}, you need to pay ${formatCurrency(Math.abs(balance))} to ${payTo}.`,
+        '',
+        `Total spend: ${formatCurrency(totalSpend)}`
+      ].join('\n');
+    }
+
+    return [
+      `*${state.title || defaultTitle}*`,
+      '',
+      `Hi ${name}, your split is settled up.`,
+      '',
+      `Total spend: ${formatCurrency(totalSpend)}`
+    ].join('\n');
+  }
+
+  if (balance > 0) {
+    return [
+      `*${state.title || defaultTitle}*`,
+      '',
+      `Hi ${name}, you should receive ${formatCurrency(Math.abs(balance))} from ${masterName}.`,
+      '',
+      `Total spend: ${formatCurrency(totalSpend)}`
+    ].join('\n');
+  }
+
+  if (balance < 0) {
+    return [
+      `*${state.title || defaultTitle}*`,
+      '',
+      `Hi ${name}, you need to pay ${formatCurrency(Math.abs(balance))} to ${masterName}.`,
+      '',
+      `Total spend: ${formatCurrency(totalSpend)}`
+    ].join('\n');
+  }
+
+  return [
+    `*${state.title || defaultTitle}*`,
+    '',
+    `Hi ${name}, your split is settled up.`,
+    '',
+    `Total spend: ${formatCurrency(totalSpend)}`
+  ].join('\n');
+}
+
+function shareSplitOnWhatsApp() {
+  const memberNumbers = state.members
+    .map((member) => ({
+      name: normalizeMember(member).name,
+      country: normalizeMember(member).country,
+      mobile: normalizeMember(member).mobile.replace(/\D/g, '')
+    }))
+    .filter((member) => member.mobile.length >= 10);
+
+  if (memberNumbers.length === 0) {
+    const message = buildPersonalMessage(getMemberNameList()[0] || '');
+    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
+    return;
+  }
+
+  memberNumbers.forEach((member, index) => {
+    const personalMessage = buildPersonalMessage(member.name);
+    const url = `https://wa.me/${member.mobile}?text=${encodeURIComponent(personalMessage)}`;
+    setTimeout(() => window.open(url, '_blank'), index * 250);
+  });
+}
+
 function exportToExcel() {
   const workbook = XLSX.utils.book_new();
 
-  const summaryRows = state.members.map((member) => {
+  const summaryRows = getMemberNameList().map((member) => {
     const paid = state.expenses
       .filter((expense) => expense.payer === member)
       .reduce((sum, expense) => sum + Number(expense.amount), 0);
 
     const share = state.expenses.reduce((sum, expense) => {
-      const splitMembers = expense.sharedWith.length > 0 ? expense.sharedWith : [...state.members];
+      const splitMembers = expense.sharedWith.length > 0 ? expense.sharedWith : getMemberNameList();
       return splitMembers.includes(member) ? sum + (Number(expense.amount) / splitMembers.length) : sum;
     }, 0);
 
@@ -546,6 +719,7 @@ function exportToExcel() {
 
 tripTitleInput.addEventListener('input', updateTitle);
 document.getElementById('addPersonBtn').addEventListener('click', addPerson);
+document.getElementById('shareWhatsAppBtn').addEventListener('click', shareSplitOnWhatsApp);
 resetAllBtn.addEventListener('click', resetAllState);
 chartTypeButtons.forEach((button) => {
   button.addEventListener('click', () => setChartType(button.dataset.chartType));
@@ -563,6 +737,13 @@ clearSelectedMembersBtn.addEventListener('click', () => {
   updateSelectedSplitSummary();
 });
 personNameInput.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    addPerson();
+  }
+});
+
+personMobileInput.addEventListener('keydown', (event) => {
   if (event.key === 'Enter') {
     event.preventDefault();
     addPerson();
