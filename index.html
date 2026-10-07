@@ -4,12 +4,21 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Split Calculator</title>
+    <script>
+      try {
+        document.documentElement.dataset.theme = localStorage.getItem('split-calculator-theme') === 'light' ? 'light' : 'dark';
+      } catch {
+        document.documentElement.dataset.theme = 'dark';
+      }
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles/style.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js" integrity="sha384-uTYyvsSSUZeaPhb5RbKlQa0zY/WpX/QHfvg2mczXyBQOpkWPEDy9lczyp+w7SKXu" crossorigin="anonymous"></script>
   </head>
   <body>
     <div class="page-shell">
@@ -19,6 +28,10 @@
           <h1>The One With the Split 🧾</h1>
         </div>
         <div class="topbar-actions">
+          <button id="themeToggleBtn" class="theme-toggle" type="button" aria-label="Switch to original theme" title="Switch to original theme" aria-pressed="true">
+            <i data-lucide="sun" class="theme-light-icon" aria-hidden="true"></i>
+            <i data-lucide="moon" class="theme-dark-icon" aria-hidden="true"></i>
+          </button>
           <button id="resetAllBtn" class="ghost-btn" type="button">Reset all</button>
           <button id="downloadExcelBtn" class="primary-btn" type="button">Download Excel</button>
         </div>

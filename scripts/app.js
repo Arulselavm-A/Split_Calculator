@@ -37,6 +37,22 @@ const selectedSplitSummary = document.getElementById('selectedSplitSummary');
 const selectAllMembersBtn = document.getElementById('selectAllMembers');
 const clearSelectedMembersBtn = document.getElementById('clearSelectedMembers');
 const chartTypeButtons = document.querySelectorAll('.chart-type-btn');
+const themeToggleBtn = document.getElementById('themeToggleBtn');
+const masterUpiIdInput = document.getElementById('masterUpiId');
+const masterUpiLabel = document.getElementById('masterUpiLabel');
+
+function applyTheme(theme) {
+  const isDark = theme === 'dark';
+  document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
+  const label = isDark ? 'Switch to original theme' : 'Switch to futuristic theme';
+  themeToggleBtn.setAttribute('aria-label', label);
+  themeToggleBtn.setAttribute('aria-pressed', String(isDark));
+  themeToggleBtn.title = label;
+  try {
+    localStorage.setItem('split-calculator-theme', isDark ? 'dark' : 'light');
+  } catch {
+  }
+}
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('en-IN', {
@@ -48,14 +64,53 @@ function formatCurrency(value) {
 
 function normalizeMember(member) {
   if (!member || typeof member !== 'object') {
-    return { name: String(member || '').trim(), country: 'IN', mobile: '' };
+    return { name: String(member || '').trim(), country: 'IN', mobile: '', upiId: '' };
   }
 
   return {
     name: String(member.name || '').trim(),
     country: String(member.country || 'IN').trim() || 'IN',
-    mobile: String(member.mobile || '').trim()
+    mobile: String(member.mobile || '').trim(),
+    upiId: normalizeUpiId(member.upiId)
   };
+}
+
+function normalizeUpiId(value) {
+  const upiId = String(value || '').trim();
+  return upiId.length <= 320 && /^[a-zA-Z0-9._-]+@[a-zA-Z0-9]+$/.test(upiId) ? upiId : '';
+}
+
+function saveMasterUpiId() {
+  const master = getMemberByName(getMasterMemberName());
+  if (!master) return true;
+
+  const value = masterUpiIdInput.value.trim();
+  const upiId = normalizeUpiId(value);
+  masterUpiIdInput.setCustomValidity(value && !upiId ? 'Enter a UPI ID in the format name@bank, or leave this field empty.' : '');
+  if (!masterUpiIdInput.reportValidity()) return false;
+
+  master.upiId = upiId;
+  saveState();
+  const recipients = document.getElementById('whatsAppRecipients');
+  recipients.replaceChildren();
+  recipients.hidden = true;
+  return true;
+}
+
+function buildMasterUpiRequest(amount) {
+  const masterName = getMasterMemberName();
+  const upiId = normalizeMember(getMemberByName(masterName)).upiId;
+  const payableAmount = Math.round(Number(amount) * 100) / 100;
+  if (!upiId || !Number.isFinite(payableAmount) || payableAmount <= 0) return '';
+
+  const params = new URLSearchParams({
+    pa: upiId,
+    pn: masterName,
+    am: payableAmount.toFixed(2),
+    cu: 'INR',
+    tn: state.title || defaultTitle
+  });
+  return `upi://pay?${params.toString()}`;
 }
 
 function getMemberNameList() {
@@ -329,7 +384,11 @@ function renderChart() {
 
   const labels = memberDetails.map((item) => item.name);
   const paidValues = memberDetails.map((item) => item.paid);
-  const palette = ['#8b5cf6', '#67b7ff', '#67d7b5', '#f7c97a', '#ff9fc9', '#b8b5ff'];
+  const isDark = document.documentElement.dataset.theme === 'dark';
+  const palette = isDark
+    ? ['#a3f36b', '#5de4ef', '#f3c969', '#fc879b', '#a1aca7', '#f5f7f5']
+    : ['#8b5cf6', '#67b7ff', '#67d7b5', '#f7c97a', '#ff9fc9', '#b8b5ff'];
+  const chartText = isDark ? '#b7c4bd' : '#475569';
 
   const ctx = document.getElementById('spendChart');
   if (!ctx) {
@@ -343,7 +402,7 @@ function renderChart() {
         label: 'Paid by person',
         data: paidValues,
         backgroundColor: palette.slice(0, labels.length),
-        borderColor: '#ffffff',
+        borderColor: isDark ? '#121715' : '#ffffff',
         borderWidth: 2,
         hoverOffset: 10,
         borderRadius: activeChartType === 'bar' ? 12 : 0,
@@ -380,13 +439,13 @@ function renderChart() {
         legend: {
           position: activeChartType === 'doughnut' ? 'right' : 'bottom',
           labels: {
-            color: '#334155',
+            color: isDark ? chartText : '#334155',
             boxWidth: 12,
             padding: 16,
             usePointStyle: true,
             pointStyle: 'circle',
             font: {
-              family: 'Inter',
+              family: isDark ? 'Space Grotesk' : 'Inter',
               size: 12,
               weight: '600'
             }
@@ -410,17 +469,17 @@ function renderChart() {
         ? {
             x: {
               grid: { display: false },
-              ticks: { color: '#475569', font: { weight: '600' } },
+              ticks: { color: chartText, font: { weight: '600' } },
               border: { display: false }
             },
             y: {
               beginAtZero: true,
               grid: {
-                color: 'rgba(148, 163, 184, 0.2)',
+                color: isDark ? 'rgba(183, 196, 189, 0.12)' : 'rgba(148, 163, 184, 0.2)',
                 drawBorder: false
               },
               ticks: {
-                color: '#475569',
+                color: chartText,
                 padding: 8,
                 callback: (value) => `₹${value}`
               },
@@ -436,6 +495,11 @@ function renderAll() {
   const recipients = document.getElementById('whatsAppRecipients');
   recipients.replaceChildren();
   recipients.hidden = true;
+  const masterName = getMasterMemberName();
+  masterUpiLabel.textContent = masterName ? `UPI ID for ${masterName} (master)` : 'Master UPI ID';
+  masterUpiIdInput.disabled = !masterName;
+  masterUpiIdInput.value = normalizeMember(getMemberByName(masterName)).upiId;
+  masterUpiIdInput.setCustomValidity('');
   tripTitleInput.value = state.title || defaultTitle;
   updateTitle();
   renderPeopleList();
@@ -631,20 +695,6 @@ function getPersonBalance(name) {
   return paid - share;
 }
 
-function getDebtorsForMaster() {
-  const masterName = getMasterMemberName();
-  if (!masterName) return [];
-
-  return getMemberNameList()
-    .filter((memberName) => memberName !== masterName)
-    .map((memberName) => ({
-      name: memberName,
-      balance: getPersonBalance(memberName)
-    }))
-    .filter((member) => member.balance < 0)
-    .sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance));
-}
-
 function buildPersonalMessage(name) {
   const totalSpend = state.expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
   const masterName = getMasterMemberName();
@@ -714,10 +764,13 @@ function buildPersonalMessage(name) {
   }
 
   if (balance < 0) {
+    const upiId = normalizeMember(getMemberByName(masterName)).upiId;
+    const paymentRequest = buildMasterUpiRequest(Math.abs(balance));
     return [
       `*${state.title || defaultTitle}*`,
       '',
       `Hi ${name}, you need to pay ${formatCurrency(Math.abs(balance))} to ${masterName}.`,
+      ...(paymentRequest ? ['', `UPI ID: ${upiId}`, `Pay ${masterName}: ${paymentRequest}`] : []),
       '',
       `Total spend: ${formatCurrency(totalSpend)}`
     ].join('\n');
@@ -733,6 +786,7 @@ function buildPersonalMessage(name) {
 }
 
 function shareSplitOnWhatsApp() {
+  if (!saveMasterUpiId()) return;
   const recipients = document.getElementById('whatsAppRecipients');
   recipients.replaceChildren();
   recipients.hidden = true;
@@ -758,31 +812,6 @@ function shareSplitOnWhatsApp() {
     recipients.appendChild(link);
   });
   recipients.hidden = false;
-}
-
-function openGooglePaySplit() {
-  const masterName = getMasterMemberName();
-  const debtors = getDebtorsForMaster();
-
-  if (!masterName || debtors.length === 0) {
-    window.open('https://pay.google.com/', '_blank');
-    return;
-  }
-
-  const total = debtors.reduce((sum, member) => sum + Math.abs(member.balance), 0);
-  const lines = [
-    `*${state.title || defaultTitle}*`,
-    '',
-    `Master: ${masterName}`,
-    `Receivable total: ${formatCurrency(total)}`,
-    '',
-    ...debtors.map((member) => `${member.name}: pay ${formatCurrency(Math.abs(member.balance))}`),
-    '',
-    'Use Google Pay split with only these members.'
-  ];
-
-  const summary = encodeURIComponent(lines.join('\n'));
-  window.open(`https://pay.google.com/?text=${summary}`, '_blank');
 }
 
 function exportToExcel() {
@@ -831,6 +860,17 @@ function exportToExcel() {
 }
 
 tripTitleInput.addEventListener('input', updateTitle);
+masterUpiIdInput.addEventListener('change', saveMasterUpiId);
+masterUpiIdInput.addEventListener('input', () => {
+  masterUpiIdInput.setCustomValidity('');
+  const recipients = document.getElementById('whatsAppRecipients');
+  recipients.replaceChildren();
+  recipients.hidden = true;
+});
+themeToggleBtn.addEventListener('click', () => {
+  applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+  renderChart();
+});
 pickContactBtn.addEventListener('click', pickPhoneContact);
 contactPhoneSelect.addEventListener('change', () => {
   personMobileInput.value = contactPhoneSelect.value;
@@ -843,7 +883,6 @@ personMobileInput.addEventListener('input', () => {
 });
 document.getElementById('addPersonBtn').addEventListener('click', addPerson);
 document.getElementById('shareWhatsAppBtn').addEventListener('click', shareSplitOnWhatsApp);
-document.getElementById('createGooglePaySplitBtn').addEventListener('click', openGooglePaySplit);
 resetAllBtn.addEventListener('click', resetAllState);
 chartTypeButtons.forEach((button) => {
   button.addEventListener('click', () => setChartType(button.dataset.chartType));
@@ -894,4 +933,6 @@ expenseForm.addEventListener('submit', addExpense);
 downloadExcelBtn.addEventListener('click', exportToExcel);
 
 hydrateStateFromStorage();
+if (window.lucide) window.lucide.createIcons();
+applyTheme(document.documentElement.dataset.theme);
 renderAll();
