@@ -17,6 +17,12 @@ A modern split-expense app for trip, food, petrol, and group spending tracking.
 - View a bar chart for paid vs. share totals
 - Download the report as an Excel file
 
+## WhatsApp sharing
+
+Select the member's country and enter their local mobile number, or enter a full international number starting with `+` (for example, `+91 98765 43210`). Click **Share on WhatsApp**, then choose each member's chat link to open their personalized message. Press **Send** in WhatsApp for each recipient.
+
+WhatsApp links cannot automatically send to everyone or check whether a number is registered. The recipient must have a WhatsApp account. If WhatsApp still displays a version warning with the correct international number, try an updated WhatsApp app or WhatsApp Web. Older numbers that were saved with missing digits must be removed and added again.
+
 ## Run locally
 
 From this folder, start a simple static server:
