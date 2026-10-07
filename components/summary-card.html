@@ -22,13 +22,13 @@
         <span class="whatsapp-icon">💬</span>
         Share on WhatsApp
       </button>
-      <button id="createGooglePaySplitBtn" class="secondary-btn googlepay-btn" type="button">
-        <span class="googlepay-icon">💸</span>
-        Google Pay split
-      </button>
     </div>
   </div>
 
+  <div class="master-payment">
+    <label id="masterUpiLabel" class="field-label" for="masterUpiId">Master UPI ID</label>
+    <input id="masterUpiId" class="text-input" type="text" autocapitalize="none" spellcheck="false" autocomplete="off" maxlength="320" placeholder="name@bank" />
+  </div>
   <div id="whatsAppRecipients" hidden aria-label="WhatsApp recipients"></div>
   <div id="personBreakdown" class="person-breakdown"></div>
 </section>

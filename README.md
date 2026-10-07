@@ -29,6 +29,12 @@ Select the member's country and enter their local mobile number, or enter a full
 
 WhatsApp links cannot automatically send to everyone or check whether a number is registered. The recipient must have a WhatsApp account. If WhatsApp still displays a version warning with the correct international number, try an updated WhatsApp app or WhatsApp Web. Older numbers that were saved with missing digits must be removed and added again.
 
+### Master UPI ID
+
+The first member is the master. Enter their real UPI ID (for example, `name@bank`) in **UPI ID for [name] (master)** in Summary. Only messages to members who owe the master money include the UPI ID and a `upi://pay` request with that person's amount owed in INR. Messages for the master, creditors, or settled members do not include payment requests. The ID is saved locally with that member, so changing the master does not reuse another person's payment destination. Previously saved hosted payment links are no longer used.
+
+The app checks the ID's format, not whether the UPI account exists. On supported devices the request opens a UPI app; WhatsApp may not make `upi://` links clickable, so recipients can use the included UPI ID and amount manually. Recipients must verify the account holder and amount in their payment app and authorize the payment themselves. The calculator cannot confirm payment or automatically mark a split as paid. Never enter a UPI PIN, OTP, or bank credentials here. Clear the field to share without a UPI request.
+
 ## Run locally
 
 From this folder, start a simple static server:
