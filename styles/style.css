@@ -201,10 +201,12 @@ h2 {
 
 .add-person-form {
   align-items: stretch;
+  flex-wrap: wrap;
 }
 
 .add-person-form #personName {
   flex: 1.2;
+  min-width: 140px;
 }
 
 .add-person-form .country-select {
@@ -214,6 +216,23 @@ h2 {
 
 .add-person-form #personMobile {
   flex: 1;
+  min-width: 140px;
+}
+
+.add-person-form button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+#contactPhone {
+  margin-top: 10px;
+}
+
+#contactPickerStatus:not([hidden]) {
+  display: block;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 0.85rem;
 }
 
 .primary-btn,

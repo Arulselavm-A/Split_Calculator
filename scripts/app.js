@@ -16,6 +16,9 @@ const tripTitleInput = document.getElementById('tripTitle');
 const personNameInput = document.getElementById('personName');
 const personCountrySelect = document.getElementById('personCountry');
 const personMobileInput = document.getElementById('personMobile');
+const pickContactBtn = document.getElementById('pickContactBtn');
+const contactPhoneSelect = document.getElementById('contactPhone');
+const contactPickerStatus = document.getElementById('contactPickerStatus');
 const peopleList = document.getElementById('peopleList');
 const expenseForm = document.getElementById('expenseForm');
 const expenseTitleInput = document.getElementById('expenseTitle');
@@ -451,6 +454,10 @@ function resetAllState() {
   tripTitleInput.value = defaultTitle;
   personNameInput.value = '';
   personMobileInput.value = '';
+  personMobileInput.setCustomValidity('');
+  contactPhoneSelect.replaceChildren();
+  contactPhoneSelect.hidden = true;
+  contactPickerStatus.hidden = true;
   expenseForm.reset();
   splitModeSelect.value = 'selected';
   selectedSplitSummary.textContent = 'Selected: all members';
@@ -471,6 +478,52 @@ function setChartType(type) {
     button.classList.toggle('active', isActive);
   });
   renderChart();
+}
+
+async function pickPhoneContact() {
+  contactPickerStatus.hidden = true;
+  if (!window.isSecureContext || typeof navigator.contacts?.select !== 'function') {
+    contactPickerStatus.textContent = 'Phone contacts are unavailable in this browser. Try Android Chrome over HTTPS, or enter the number manually.';
+    contactPickerStatus.hidden = false;
+    return;
+  }
+
+  pickContactBtn.disabled = true;
+  try {
+    const contacts = await navigator.contacts.select(['name', 'tel'], { multiple: false });
+    if (!contacts.length) return;
+
+    const contact = contacts[0];
+    const numbers = (contact.tel || [])
+      .filter((number) => typeof number === 'string' && number.trim())
+      .map((number) => number.trim());
+    if (!numbers.length) {
+      contactPickerStatus.textContent = 'This contact has no phone number. Choose another contact.';
+      contactPickerStatus.hidden = false;
+      return;
+    }
+
+    contactPhoneSelect.replaceChildren();
+    numbers.forEach((number) => {
+      const option = document.createElement('option');
+      option.value = number;
+      option.textContent = number;
+      contactPhoneSelect.appendChild(option);
+    });
+    contactPhoneSelect.hidden = numbers.length === 1;
+    if (contact.name?.[0]) personNameInput.value = contact.name[0];
+    personMobileInput.value = numbers[0];
+    personMobileInput.setCustomValidity('');
+    if (numbers.length > 1) contactPhoneSelect.focus();
+    else personMobileInput.focus();
+  } catch (error) {
+    if (error.name !== 'AbortError') {
+      contactPickerStatus.textContent = 'Could not open phone contacts. Try again or enter the number manually.';
+      contactPickerStatus.hidden = false;
+    }
+  } finally {
+    pickContactBtn.disabled = false;
+  }
 }
 
 function addPerson() {
@@ -502,6 +555,9 @@ function addPerson() {
   state.members.push({ name, country, mobile });
   personNameInput.value = '';
   personMobileInput.value = '';
+  contactPhoneSelect.replaceChildren();
+  contactPhoneSelect.hidden = true;
+  contactPickerStatus.hidden = true;
   personCountrySelect.value = 'IN';
   renderAll();
 }
@@ -775,6 +831,16 @@ function exportToExcel() {
 }
 
 tripTitleInput.addEventListener('input', updateTitle);
+pickContactBtn.addEventListener('click', pickPhoneContact);
+contactPhoneSelect.addEventListener('change', () => {
+  personMobileInput.value = contactPhoneSelect.value;
+  personMobileInput.setCustomValidity('');
+});
+personMobileInput.addEventListener('input', () => {
+  personMobileInput.setCustomValidity('');
+  contactPhoneSelect.hidden = true;
+  contactPickerStatus.hidden = true;
+});
 document.getElementById('addPersonBtn').addEventListener('click', addPerson);
 document.getElementById('shareWhatsAppBtn').addEventListener('click', shareSplitOnWhatsApp);
 document.getElementById('createGooglePaySplitBtn').addEventListener('click', openGooglePaySplit);
