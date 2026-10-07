@@ -452,6 +452,19 @@ h2 {
   justify-content: flex-end;
 }
 
+#whatsAppRecipients:not([hidden]) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+#whatsAppRecipients a {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-decoration: none;
+}
+
 .person-summary-header h3 {
   display: inline-flex;
   align-items: center;
@@ -516,9 +529,9 @@ h2 {
 
 .person-breakdown {
   margin-top: 16px;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-height: 0 !important;
-  height: 220px !important;
+  height: auto !important;
   overflow-x: auto !important;
   overflow-y: hidden !important;
   padding: 12px 10px 12px;
@@ -535,8 +548,8 @@ h2 {
 }
 
 #personBreakdown {
-  height: 220px !important;
-  max-height: 220px !important;
+  height: auto !important;
+  max-height: none !important;
   min-height: 220px !important;
   display: flex !important;
   flex-direction: row !important;
@@ -613,6 +626,13 @@ h2 {
   flex-shrink: 0;
   position: relative;
   overflow: hidden;
+  white-space: normal;
+}
+
+.person-row > * {
+  flex-shrink: 0;
+  min-width: 0;
+  max-width: calc(100% - 4px);
 }
 
 .person-row::before {
@@ -670,7 +690,8 @@ h2 {
   padding: 9px 12px;
   font-size: 0.75rem;
   font-weight: 800;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
   width: fit-content;
   margin-left: 4px;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.75);
