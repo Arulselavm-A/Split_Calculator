@@ -17,6 +17,12 @@ A modern split-expense app for trip, food, petrol, and group spending tracking.
 - View a bar chart for paid vs. share totals
 - Download the report as an Excel file
 
+## Phone contacts
+
+Click **Contacts** next to the mobile-number field to choose a contact. The selected name and phone number fill the form; if the contact has several numbers, choose one from the number selector, then click **Add person**. For local numbers, select the matching country. Full numbers beginning with `+` keep their country calling code.
+
+Phone-book access requires a supported browser (primarily Chrome on Android), a top-level page served over HTTPS, and your permission. It is not available in Safari on iPhone or most desktop browsers. Manual entry remains available. Only the contact you choose is shared with the app, and it is saved locally when you add the person.
+
 ## WhatsApp sharing
 
 Select the member's country and enter their local mobile number, or enter a full international number starting with `+` (for example, `+91 98765 43210`). Click **Share on WhatsApp**, then choose each member's chat link to open their personalized message. Press **Send** in WhatsApp for each recipient.

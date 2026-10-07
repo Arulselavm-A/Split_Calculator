@@ -43,8 +43,13 @@
       <option value="IN">India (+91)</option>
     </select>
     <input id="personMobile" class="text-input" type="tel" inputmode="tel" maxlength="25" placeholder="Mobile number" aria-label="Mobile number" />
+    <button id="pickContactBtn" class="secondary-btn" type="button" title="Choose from phone contacts">
+      <span aria-hidden="true">&#128210;</span> Contacts
+    </button>
     <button id="addPersonBtn" class="secondary-btn" type="button">Add person</button>
   </div>
 
+  <select id="contactPhone" class="select-input" aria-label="Contact phone number" hidden></select>
+  <output id="contactPickerStatus" aria-live="polite" hidden></output>
   <div id="peopleList" class="people-list" aria-live="polite"></div>
 </section>
