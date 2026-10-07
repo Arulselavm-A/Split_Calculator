@@ -59,6 +59,38 @@ function getMemberNameList() {
   return state.members.map((member) => normalizeMember(member).name);
 }
 
+function getWhatsAppNumber(person) {
+  const member = normalizeMember(person);
+  const callingCodes = {
+    IN: '91', US: '1', GB: '44', AE: '971', SA: '966', AU: '61',
+    CA: '1', SG: '65', MY: '60', DE: '49', FR: '33', IT: '39',
+    ES: '34', NL: '31', SE: '46', NO: '47', DK: '45', BE: '32',
+    CH: '41', JP: '81', KR: '82', NZ: '64', ZA: '27', NG: '234',
+    EG: '20', PK: '92', BD: '880', LK: '94', NP: '977', TH: '66',
+    VN: '84', ID: '62', PH: '63'
+  };
+  const callingCode = callingCodes[member.country];
+  if (!callingCode || !member.mobile) return '';
+
+  let number = member.mobile.replace(/\D/g, '');
+  if (member.mobile.startsWith('+')) {
+    return /^[1-9]\d{6,14}$/.test(number) ? number : '';
+  }
+  if (number.startsWith('00')) {
+    number = number.slice(2);
+    return /^[1-9]\d{6,14}$/.test(number) ? number : '';
+  }
+  if (member.country === 'IN' && number.length === 12 && number.startsWith(callingCode)) {
+    number = number.slice(callingCode.length);
+  }
+  if (member.country !== 'IT') number = number.replace(/^0+/, '');
+  if (member.country === 'IN' && !/^[6-9]\d{9}$/.test(number)) return '';
+  if (!/^\d{7,14}$/.test(number)) return '';
+
+  const internationalNumber = callingCode + number;
+  return internationalNumber.length <= 15 ? internationalNumber : '';
+}
+
 function getMemberByName(name) {
   return state.members.find((member) => normalizeMember(member).name.toLowerCase() === String(name).trim().toLowerCase());
 }
@@ -274,29 +306,6 @@ function computeSummary() {
     `)
     .join('');
 
-  personBreakdown.style.cssText = `
-    display: flex !important;
-    flex-direction: row !important;
-    flex-wrap: nowrap !important;
-    gap: 10px !important;
-    overflow-x: auto !important;
-    overflow-y: hidden !important;
-    white-space: nowrap !important;
-    align-items: stretch !important;
-    height: 200px !important;
-    max-height: 200px !important;
-    min-height: 200px !important;
-    padding: 6px 8px 8px !important;
-  `;
-
-  personBreakdown.querySelectorAll('.person-row').forEach((row) => {
-    row.style.width = '250px';
-    row.style.minWidth = '250px';
-    row.style.height = '180px';
-    row.style.flex = '0 0 250px';
-    row.style.gridColumn = 'span 1';
-  });
-
   categoryBreakdown.innerHTML = Object.entries(categoryTotals)
     .map(([category, amount], index) => `
       <div class="category-pill" style="background: linear-gradient(135deg, rgba(205, 180, 219, 0.18), rgba(189, 224, 254, 0.2)); border-left: 6px solid ${['#cdb4db', '#ffc8dd', '#bde0fe', '#a2d2ff', '#ffafcc', '#caffbf'][index % 6]};">
@@ -421,6 +430,9 @@ function renderChart() {
 }
 
 function renderAll() {
+  const recipients = document.getElementById('whatsAppRecipients');
+  recipients.replaceChildren();
+  recipients.hidden = true;
   tripTitleInput.value = state.title || defaultTitle;
   updateTitle();
   renderPeopleList();
@@ -464,16 +476,16 @@ function setChartType(type) {
 function addPerson() {
   const name = personNameInput.value.trim();
   const country = personCountrySelect.value || 'IN';
-  const mobile = personMobileInput.value.replace(/\D/g, '').slice(0, 10);
+  const mobile = personMobileInput.value.trim();
 
   if (!name) {
     personNameInput.focus();
     return;
   }
 
-  if (country === 'IN' && !/^[0-9]{10}$/.test(mobile)) {
+  if (!getWhatsAppNumber({ name, country, mobile })) {
     personMobileInput.focus();
-    personMobileInput.setCustomValidity('Enter a valid 10-digit mobile number');
+    personMobileInput.setCustomValidity('Enter a valid mobile number for the selected country, or an international number starting with +');
     personMobileInput.reportValidity();
     return;
   }
@@ -665,13 +677,12 @@ function buildPersonalMessage(name) {
 }
 
 function shareSplitOnWhatsApp() {
+  const recipients = document.getElementById('whatsAppRecipients');
+  recipients.replaceChildren();
+  recipients.hidden = true;
   const memberNumbers = state.members
-    .map((member) => ({
-      name: normalizeMember(member).name,
-      country: normalizeMember(member).country,
-      mobile: normalizeMember(member).mobile.replace(/\D/g, '')
-    }))
-    .filter((member) => member.mobile.length >= 10);
+    .map((member) => ({ name: normalizeMember(member).name, mobile: getWhatsAppNumber(member) }))
+    .filter((member) => member.mobile);
 
   if (memberNumbers.length === 0) {
     const message = buildPersonalMessage(getMemberNameList()[0] || '');
@@ -679,11 +690,18 @@ function shareSplitOnWhatsApp() {
     return;
   }
 
-  memberNumbers.forEach((member, index) => {
+  memberNumbers.forEach((member) => {
     const personalMessage = buildPersonalMessage(member.name);
     const url = `https://wa.me/${member.mobile}?text=${encodeURIComponent(personalMessage)}`;
-    setTimeout(() => window.open(url, '_blank'), index * 250);
+    const link = document.createElement('a');
+    link.className = 'secondary-btn whatsapp-btn';
+    link.href = url;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.textContent = `WhatsApp: ${member.name}`;
+    recipients.appendChild(link);
   });
+  recipients.hidden = false;
 }
 
 function openGooglePaySplit() {
