@@ -16,6 +16,7 @@ A modern split-expense app for trip, food, petrol, and group spending tracking.
 - Automatically calculate total spend and per-person split
 - View a bar chart for paid vs. share totals
 - Download the report as an Excel file
+- Pick a theme from the dropdown in the header: Original, Futuristic, Claymorphism, Neo-brutalism, or Skeuomorphism (your choice is remembered)
 
 ## Phone contacts
 
