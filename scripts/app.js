@@ -2,6 +2,8 @@ const defaultTitle = 'Travel Budget';
 const members = [];
 const defaultExpenses = [];
 const STORAGE_KEY = 'split-calculator-state-v1';
+const HISTORY_KEY = 'split-calculator-history-v1';
+const HISTORY_LIMIT = 5;
 
 const state = {
   title: defaultTitle,
@@ -359,6 +361,9 @@ function computeSummary() {
         <span class="amount-pill ${person.balance < 0 ? 'negative' : ''}">
           ${person.balance >= 0 ? 'Gets back' : 'Owes'} ${formatCurrency(Math.abs(person.balance))}
         </span>
+        ${person.balance < -0.005 && person.name !== getMasterMemberName()
+          ? `<button class="mini-btn pay-btn" type="button" data-pay-name="${escapeHtml(person.name)}">Pay options</button>`
+          : ''}
       </div>
     `)
     .join('');
@@ -504,10 +509,255 @@ function renderAll() {
   renderSplitOptions();
   renderExpenseTable();
   renderChart();
+  renderHistory();
   saveState();
 }
 
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[char]);
+}
+
+function loadHistory() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(HISTORY_KEY));
+    return Array.isArray(parsed) ? parsed.slice(0, HISTORY_LIMIT) : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function archiveCurrentSplit() {
+  if (state.expenses.length === 0) {
+    return;
+  }
+
+  const names = getMemberNameList();
+  const people = names.map((name) => {
+    const paid = state.expenses
+      .filter((expense) => expense.payer === name)
+      .reduce((sum, expense) => sum + Number(expense.amount), 0);
+    const share = state.expenses.reduce((sum, expense) => {
+      const splitMembers = expense.sharedWith.length > 0 ? expense.sharedWith : names;
+      return splitMembers.includes(name) ? sum + (Number(expense.amount) / splitMembers.length) : sum;
+    }, 0);
+    return { name, paid, share, balance: paid - share };
+  });
+
+  const entry = {
+    savedAt: new Date().toISOString(),
+    title: state.title,
+    total: state.expenses.reduce((sum, expense) => sum + Number(expense.amount), 0),
+    people,
+    expenses: state.expenses.map(({ title, amount, payer, sharedWith }) => ({ title, amount, payer, sharedWith }))
+  };
+
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify([entry, ...loadHistory()].slice(0, HISTORY_LIMIT)));
+  } catch (error) {
+    // Ignore storage quota / browser issues gracefully.
+  }
+}
+
+function renderHistory() {
+  const list = document.getElementById('historyList');
+  if (!list) {
+    return;
+  }
+
+  const history = loadHistory();
+  if (history.length === 0) {
+    list.innerHTML = '<div class="empty-state">No past splits yet. A split is saved here when you press "Reset all".</div>';
+    return;
+  }
+
+  list.innerHTML = history.map((entry) => {
+    const date = new Date(entry.savedAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+    const people = (entry.people || []).map((person) => `
+      <tr>
+        <td>${escapeHtml(person.name)}</td>
+        <td>${formatCurrency(person.paid)}</td>
+        <td>${formatCurrency(person.share)}</td>
+        <td>${person.balance >= 0 ? 'Gets back' : 'Owes'} ${formatCurrency(Math.abs(person.balance))}</td>
+      </tr>
+    `).join('');
+    const rows = (entry.expenses || []).map((expense) => `
+      <tr>
+        <td>${escapeHtml(expense.title)}</td>
+        <td>${formatCurrency(expense.amount)}</td>
+        <td>${escapeHtml(expense.payer)}</td>
+        <td>${escapeHtml((expense.sharedWith || []).join(', '))}</td>
+      </tr>
+    `).join('');
+
+    return `
+      <details class="history-item">
+        <summary>
+          <strong>${escapeHtml(entry.title)}</strong>
+          <span class="history-meta">${escapeHtml(date)} · ${(entry.people || []).length} people · ${formatCurrency(entry.total)}</span>
+        </summary>
+        <div class="history-body">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Person</th><th>Paid</th><th>Share</th><th>Balance</th></tr></thead>
+              <tbody>${people}</tbody>
+            </table>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Expense</th><th>Amount</th><th>Paid by</th><th>Split with</th></tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+    `;
+  }).join('');
+}
+
+function copyText(text, button) {
+  const done = () => {
+    const original = button.textContent;
+    button.textContent = 'Copied';
+    setTimeout(() => { button.textContent = original; }, 1500);
+  };
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(done, () => {});
+    return;
+  }
+  const area = document.createElement('textarea');
+  area.value = text;
+  area.setAttribute('readonly', '');
+  area.style.position = 'fixed';
+  area.style.opacity = '0';
+  document.body.appendChild(area);
+  area.select();
+  try {
+    if (document.execCommand('copy')) done();
+  } finally {
+    area.remove();
+  }
+}
+
+function qrSvgToPngBlob(svgMarkup) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(new Blob([svgMarkup], { type: 'image/svg+xml' }));
+    const image = new Image();
+    image.onload = () => {
+      const size = 600;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const context = canvas.getContext('2d');
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, size, size);
+      context.imageSmoothingEnabled = false;
+      context.drawImage(image, 0, 0, size, size);
+      URL.revokeObjectURL(url);
+      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('QR export failed'))), 'image/png');
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('QR export failed'));
+    };
+    image.src = url;
+  });
+}
+
+async function shareQrImage(payerName, button) {
+  const svg = document.querySelector('#payQr svg');
+  if (!svg) return;
+  const original = button.textContent;
+  try {
+    const svgMarkup = new XMLSerializer().serializeToString(svg);
+    const blob = await qrSvgToPngBlob(svgMarkup.includes('xmlns=') ? svgMarkup : svgMarkup.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"'));
+    const file = new File([blob], `pay-${payerName.replace(/\s+/g, '_')}.png`, { type: 'image/png' });
+    await navigator.share({ files: [file], text: buildPersonalMessage(payerName) });
+  } catch (error) {
+    if (error && error.name === 'AbortError') return;
+    button.textContent = 'Sharing not supported here';
+    setTimeout(() => { button.textContent = original; }, 2500);
+  }
+}
+
+function openPayDialog(payerName) {
+  const masterName = getMasterMemberName();
+  const master = normalizeMember(getMemberByName(masterName));
+  const amount = Math.round(Math.abs(getPersonBalance(payerName)) * 100) / 100;
+  if (!masterName || amount <= 0) return;
+
+  const upiId = master.upiId;
+  const mobile = getWhatsAppNumber(master);
+  const upiLink = buildMasterUpiRequest(amount);
+  const amountText = amount.toFixed(2);
+
+  document.getElementById('payDialogTitle').textContent = `${payerName}: pay ${formatCurrency(amount)} to ${masterName}`;
+  document.getElementById('payDialogNote').textContent = 'Choose any option. If your app blocks the link, use the QR code, UPI ID or mobile number.';
+
+  const qrBox = document.getElementById('payQr');
+  const qrHint = document.getElementById('payQrHint');
+  qrBox.replaceChildren();
+  const showQr = Boolean(upiLink && window.qrcode);
+  if (showQr) {
+    const qr = window.qrcode(0, 'M');
+    qr.addData(upiLink);
+    qr.make();
+    qrBox.innerHTML = qr.createSvgTag({ cellSize: 6, margin: 4, scalable: true });
+  }
+  qrBox.hidden = !showQr;
+  qrHint.hidden = !showQr;
+
+  const options = [
+    { label: 'Amount', value: amountText, copy: amountText },
+    ...(upiId ? [{ label: 'UPI ID', value: upiId, copy: upiId }] : []),
+    ...(mobile ? [{ label: 'Mobile number', value: `+${mobile}`, copy: mobile.startsWith('91') && mobile.length === 12 ? mobile.slice(2) : mobile }] : [])
+  ];
+  const optionsBox = document.getElementById('payOptions');
+  optionsBox.replaceChildren();
+  options.forEach((option) => {
+    const row = document.createElement('div');
+    row.className = 'pay-option';
+    const text = document.createElement('div');
+    const label = document.createElement('small');
+    label.textContent = option.label;
+    const value = document.createElement('strong');
+    value.textContent = option.value;
+    text.append(label, value);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'pay-copy';
+    button.textContent = 'Copy';
+    button.addEventListener('click', () => copyText(option.copy, button));
+    row.append(text, button);
+    optionsBox.appendChild(row);
+  });
+
+  const openApp = document.getElementById('payOpenApp');
+  openApp.hidden = !upiLink;
+  if (upiLink) openApp.href = upiLink;
+
+  const payerNumber = getWhatsAppNumber(getMemberByName(payerName));
+  const whatsApp = document.getElementById('payWhatsApp');
+  whatsApp.hidden = !payerNumber;
+  if (payerNumber) {
+    whatsApp.href = `https://wa.me/${payerNumber}?text=${encodeURIComponent(buildPersonalMessage(payerName))}`;
+    document.getElementById('payWhatsAppName').textContent = payerName;
+  }
+
+  const shareQr = document.getElementById('payShareQr');
+  shareQr.dataset.payerName = payerName;
+  const canShareFiles = showQr && typeof navigator.canShare === 'function' &&
+    navigator.canShare({ files: [new File([''], 'qr.png', { type: 'image/png' })] });
+  shareQr.hidden = !canShareFiles;
+
+  const dialog = document.getElementById('payDialog');
+  if (typeof dialog.showModal === 'function') dialog.showModal();
+  else dialog.setAttribute('open', '');
+}
+
 function resetAllState() {
+  archiveCurrentSplit();
   state.title = defaultTitle;
   state.members = [...members].map((member) => normalizeMember(member));
   state.expenses = [...defaultExpenses];
@@ -763,11 +1013,21 @@ function buildPersonalMessage(name) {
   if (balance < 0) {
     const upiId = normalizeMember(getMemberByName(masterName)).upiId;
     const paymentRequest = buildMasterUpiRequest(Math.abs(balance));
+    const masterMobile = getWhatsAppNumber(getMemberByName(masterName));
     return [
       `*${state.title || defaultTitle}*`,
       '',
       `Hi ${name}, you need to pay ${formatCurrency(Math.abs(balance))} to ${masterName}.`,
-      ...(paymentRequest ? ['', `UPI ID: ${upiId}`, `Pay ${masterName}: ${paymentRequest}`] : []),
+      ...(paymentRequest
+        ? [
+            '',
+            `UPI ID: ${upiId}`,
+            ...(masterMobile ? [`Mobile (UPI): +${masterMobile}`] : []),
+            `Pay ${masterName}: ${paymentRequest}`,
+            '',
+            `If GPay / PhonePe / Paytm blocks the link, pay ${formatCurrency(Math.abs(balance))} using the UPI ID or mobile number above.`
+          ]
+        : []),
       '',
       `Total spend: ${formatCurrency(totalSpend)}`
     ].join('\n');
@@ -830,6 +1090,16 @@ themeSelect.addEventListener('change', () => {
     clearTimeout(themeSwitchTimer);
     themeSwitchTimer = setTimeout(() => root.classList.remove('theme-switching'), 80);
   });
+});
+personBreakdown.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-pay-name]');
+  if (button) openPayDialog(button.dataset.payName);
+});
+document.getElementById('payDialog').addEventListener('click', (event) => {
+  if (event.target === event.currentTarget) event.currentTarget.close();
+});
+document.getElementById('payShareQr').addEventListener('click', (event) => {
+  shareQrImage(event.currentTarget.dataset.payerName, event.currentTarget);
 });
 pickContactBtn.addEventListener('click', pickPhoneContact);
 contactPhoneSelect.addEventListener('change', () => {

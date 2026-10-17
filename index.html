@@ -18,6 +18,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Nunito:wght@500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles/style.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js" integrity="sha384-8FWZA6BGMXhsfO+BLtrJK0We6gg5o1JyO8xQm6peWDEUs17ACA5ziE/NIAkl9z2k" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js" integrity="sha384-uTYyvsSSUZeaPhb5RbKlQa0zY/WpX/QHfvg2mczXyBQOpkWPEDy9lczyp+w7SKXu" crossorigin="anonymous"></script>
   </head>
   <body>
@@ -44,6 +45,20 @@
       </header>
 
       <main id="contentGrid" class="content-grid"></main>
+
+      <dialog id="payDialog" class="pay-dialog" aria-labelledby="payDialogTitle">
+        <form method="dialog" class="pay-dialog-inner">
+          <h3 id="payDialogTitle"></h3>
+          <p id="payDialogNote" class="pay-note"></p>
+          <div id="payQr" class="pay-qr" hidden></div>
+          <p id="payQrHint" class="pay-note" hidden>Scan this QR with any UPI app (GPay, PhonePe, Paytm, CRED...). The amount is filled in.</p>
+          <div id="payOptions" class="pay-options"></div>
+          <a id="payOpenApp" class="pay-open-app" hidden>Open UPI app</a>
+          <a id="payWhatsApp" class="pay-whatsapp" target="_blank" rel="noopener noreferrer" hidden>Send to <span id="payWhatsAppName"></span> on WhatsApp</a>
+          <button id="payShareQr" class="pay-share-qr" type="button" hidden>Share QR image on WhatsApp</button>
+          <button class="pay-close" value="close">Close</button>
+        </form>
+      </dialog>
     </div>
 
     <script>
@@ -54,7 +69,8 @@
         'components/summary-card.html',
         'components/category-card.html',
         'components/chart-card.html',
-        'components/table-card.html'
+        'components/table-card.html',
+        'components/history-card.html'
       ];
 
       const contentGrid = document.getElementById('contentGrid');

@@ -15,6 +15,8 @@ A modern split-expense app for trip, food, petrol, and group spending tracking.
 - Add expenses with title, amount, payer, and chosen split members
 - Automatically calculate total spend and per-person split
 - View a bar chart for paid vs. share totals
+- For anyone who owes money, tap **Pay options** in the summary to get a scannable UPI QR code, copy buttons for the amount, UPI ID and mobile number, an "Open UPI app" link, and WhatsApp buttons to send the payment details to that person (on phones you can also share the QR image)
+- Press **Reset all** to start a new split; the previous one is saved to a view-only history panel (last 5 splits, stored in this browser)
 - Pick a theme from the dropdown in the header: Lavender Glow, Neon Night, Soft Clay, Bold Pop, or Retro Console (your choice is remembered)
 
 ## Phone contacts
