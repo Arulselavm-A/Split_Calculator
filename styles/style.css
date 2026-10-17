@@ -111,7 +111,6 @@ h2 {
   border-radius: 26px;
   padding: 22px;
   box-shadow: var(--shadow);
-  backdrop-filter: blur(10px);
   position: relative;
   overflow: hidden;
 }
@@ -1342,7 +1341,6 @@ html:is([data-theme="clay"], [data-theme="brutal"], [data-theme="skeu"]) {
   & body {
     font-family: var(--t-font);
     background: var(--t-page-bg);
-    background-attachment: fixed;
   }
 
   & :is(h1, .eyebrow) {
@@ -1621,16 +1619,11 @@ html[data-theme="skeu"] {
   }
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  html:is([data-theme="clay"], [data-theme="brutal"], [data-theme="skeu"]) .content-grid,
-  [data-theme="dark"] .content-grid {
-    animation: theme-reveal 0.35s ease-out;
-  }
-
-  @keyframes theme-reveal {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
+html.theme-switching *,
+html.theme-switching *::before,
+html.theme-switching *::after {
+  transition: none !important;
+  animation: none !important;
 }
 
 @media (max-width: 900px) {
