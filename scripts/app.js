@@ -31,7 +31,6 @@ const categoryBreakdown = document.getElementById('categoryBreakdown');
 const totalSpendValue = document.getElementById('totalSpendValue');
 const perPersonValue = document.getElementById('perPersonValue');
 const expenseTableBody = document.getElementById('expenseTableBody');
-const downloadExcelBtn = document.getElementById('downloadExcelBtn');
 const resetAllBtn = document.getElementById('resetAllBtn');
 const selectedSplitSummary = document.getElementById('selectedSplitSummary');
 const selectAllMembersBtn = document.getElementById('selectAllMembers');
@@ -379,7 +378,7 @@ function computeSummary() {
   return { memberDetails, totalSpend };
 }
 
-function renderChart() {
+function renderChart(animate = true) {
   const { memberDetails } = computeSummary();
 
   const labels = memberDetails.map((item) => item.name);
@@ -422,10 +421,7 @@ function renderChart() {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      animation: {
-        duration: 600,
-        easing: 'easeOutQuart'
-      },
+      animation: animate ? { duration: 600, easing: 'easeOutQuart' } : false,
       layout: {
         padding: {
           top: 12,
@@ -815,51 +811,6 @@ function shareSplitOnWhatsApp() {
   recipients.hidden = false;
 }
 
-function exportToExcel() {
-  const workbook = XLSX.utils.book_new();
-
-  const summaryRows = getMemberNameList().map((member) => {
-    const paid = state.expenses
-      .filter((expense) => expense.payer === member)
-      .reduce((sum, expense) => sum + Number(expense.amount), 0);
-
-    const share = state.expenses.reduce((sum, expense) => {
-      const splitMembers = expense.sharedWith.length > 0 ? expense.sharedWith : getMemberNameList();
-      return splitMembers.includes(member) ? sum + (Number(expense.amount) / splitMembers.length) : sum;
-    }, 0);
-
-    return {
-      Person: member,
-      'Total Paid': paid,
-      'Total Share': share,
-      Balance: paid - share
-    };
-  });
-
-  const expenseRows = state.expenses.map((expense) => ({
-    Expense: expense.title,
-    Amount: expense.amount,
-    'Paid By': expense.payer,
-    'Split With': expense.sharedWith.join(', ')
-  }));
-
-  const categoryRows = Object.entries(state.expenses.reduce((acc, expense) => {
-    const key = expense.title.trim() || 'Expense';
-    acc[key] = (acc[key] || 0) + Number(expense.amount);
-    return acc;
-  }, {})).map(([category, amount]) => ({ Category: category, Amount: amount }));
-
-  const summarySheet = XLSX.utils.json_to_sheet(summaryRows);
-  const expenseSheet = XLSX.utils.json_to_sheet(expenseRows);
-  const chartDataSheet = XLSX.utils.json_to_sheet(categoryRows);
-
-  XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
-  XLSX.utils.book_append_sheet(workbook, expenseSheet, 'Expenses');
-  XLSX.utils.book_append_sheet(workbook, chartDataSheet, 'Chart Data');
-
-  XLSX.writeFile(workbook, `${(state.title || 'split-calculator').replace(/\s+/g, '_')}.xlsx`);
-}
-
 tripTitleInput.addEventListener('input', updateTitle);
 masterUpiIdInput.addEventListener('change', saveMasterUpiId);
 masterUpiIdInput.addEventListener('input', () => {
@@ -868,9 +819,17 @@ masterUpiIdInput.addEventListener('input', () => {
   recipients.replaceChildren();
   recipients.hidden = true;
 });
+let themeSwitchTimer;
 themeSelect.addEventListener('change', () => {
+  const root = document.documentElement;
+  // Suppress transitions/animations so the whole page swaps theme in a single paint.
+  root.classList.add('theme-switching');
   applyTheme(themeSelect.value);
-  renderChart();
+  requestAnimationFrame(() => {
+    renderChart(false);
+    clearTimeout(themeSwitchTimer);
+    themeSwitchTimer = setTimeout(() => root.classList.remove('theme-switching'), 80);
+  });
 });
 pickContactBtn.addEventListener('click', pickPhoneContact);
 contactPhoneSelect.addEventListener('change', () => {
@@ -931,7 +890,6 @@ expenseTableBody.addEventListener('click', (event) => {
 });
 
 expenseForm.addEventListener('submit', addExpense);
-downloadExcelBtn.addEventListener('click', exportToExcel);
 
 hydrateStateFromStorage();
 if (window.lucide) window.lucide.createIcons();

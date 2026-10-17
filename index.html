@@ -18,30 +18,28 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Nunito:wght@500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles/style.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js" integrity="sha384-uTYyvsSSUZeaPhb5RbKlQa0zY/WpX/QHfvg2mczXyBQOpkWPEDy9lczyp+w7SKXu" crossorigin="anonymous"></script>
   </head>
   <body>
     <div class="page-shell">
       <header class="topbar">
         <div>
-          <p class="eyebrow">💳 Expense Tracker </p>
-          <h1>The One With the Split 🧾</h1>
+          <p class="eyebrow">💸 SplitMate</p>
+          <h1>Share the fun, split the bill 🧾</h1>
         </div>
         <div class="topbar-actions">
           <label class="theme-picker" for="themeSelect">
             <i data-lucide="palette" aria-hidden="true"></i>
             <span class="sr-only">Theme</span>
             <select id="themeSelect" class="select-input theme-select">
-              <option value="light">Original</option>
-              <option value="dark">Futuristic</option>
-              <option value="clay">Claymorphism</option>
-              <option value="brutal">Neo-brutalism</option>
-              <option value="skeu">Skeuomorphism</option>
+              <option value="light">🌸 Lavender Glow</option>
+              <option value="dark">🌙 Neon Night</option>
+              <option value="clay">🧸 Soft Clay</option>
+              <option value="brutal">⚡ Bold Pop</option>
+              <option value="skeu">🎛️ Retro Console</option>
             </select>
           </label>
           <button id="resetAllBtn" class="ghost-btn" type="button">Reset all</button>
-          <button id="downloadExcelBtn" class="primary-btn" type="button">Download Excel</button>
         </div>
       </header>
 
