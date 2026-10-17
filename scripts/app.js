@@ -37,19 +37,19 @@ const selectedSplitSummary = document.getElementById('selectedSplitSummary');
 const selectAllMembersBtn = document.getElementById('selectAllMembers');
 const clearSelectedMembersBtn = document.getElementById('clearSelectedMembers');
 const chartTypeButtons = document.querySelectorAll('.chart-type-btn');
-const themeToggleBtn = document.getElementById('themeToggleBtn');
+const themeSelect = document.getElementById('themeSelect');
 const masterUpiIdInput = document.getElementById('masterUpiId');
 const masterUpiLabel = document.getElementById('masterUpiLabel');
 
+const THEMES = ['light', 'dark', 'clay', 'brutal', 'skeu'];
+const DEFAULT_THEME = 'dark';
+
 function applyTheme(theme) {
-  const isDark = theme === 'dark';
-  document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
-  const label = isDark ? 'Switch to original theme' : 'Switch to futuristic theme';
-  themeToggleBtn.setAttribute('aria-label', label);
-  themeToggleBtn.setAttribute('aria-pressed', String(isDark));
-  themeToggleBtn.title = label;
+  const next = THEMES.includes(theme) ? theme : DEFAULT_THEME;
+  document.documentElement.dataset.theme = next;
+  themeSelect.value = next;
   try {
-    localStorage.setItem('split-calculator-theme', isDark ? 'dark' : 'light');
+    localStorage.setItem('split-calculator-theme', next);
   } catch {
   }
 }
@@ -366,7 +366,7 @@ function computeSummary() {
 
   categoryBreakdown.innerHTML = Object.entries(categoryTotals)
     .map(([category, amount], index) => `
-      <div class="category-pill" style="background: linear-gradient(135deg, rgba(205, 180, 219, 0.18), rgba(189, 224, 254, 0.2)); border-left: 6px solid ${['#cdb4db', '#ffc8dd', '#bde0fe', '#a2d2ff', '#ffafcc', '#caffbf'][index % 6]};">
+      <div class="category-pill" style="--pill-accent: ${['#cdb4db', '#ffc8dd', '#bde0fe', '#a2d2ff', '#ffafcc', '#caffbf'][index % 6]};">
         <div>
           <strong>${category}</strong>
           <small>Category total</small>
@@ -384,11 +384,11 @@ function renderChart() {
 
   const labels = memberDetails.map((item) => item.name);
   const paidValues = memberDetails.map((item) => item.paid);
-  const isDark = document.documentElement.dataset.theme === 'dark';
-  const palette = isDark
-    ? ['#a3f36b', '#5de4ef', '#f3c969', '#fc879b', '#a1aca7', '#f5f7f5']
-    : ['#8b5cf6', '#67b7ff', '#67d7b5', '#f7c97a', '#ff9fc9', '#b8b5ff'];
-  const chartText = isDark ? '#b7c4bd' : '#475569';
+  const themeStyle = getComputedStyle(document.documentElement);
+  const cssVar = (name) => themeStyle.getPropertyValue(name).trim();
+  const palette = [1, 2, 3, 4, 5, 6].map((n) => cssVar(`--chart-${n}`));
+  const chartText = cssVar('--chart-text');
+  const chartFont = cssVar('--chart-font');
 
   const ctx = document.getElementById('spendChart');
   if (!ctx) {
@@ -402,8 +402,8 @@ function renderChart() {
         label: 'Paid by person',
         data: paidValues,
         backgroundColor: palette.slice(0, labels.length),
-        borderColor: isDark ? '#121715' : '#ffffff',
-        borderWidth: 2,
+        borderColor: cssVar('--chart-border'),
+        borderWidth: Number(cssVar('--chart-border-width')) || 2,
         hoverOffset: 10,
         borderRadius: activeChartType === 'bar' ? 12 : 0,
         borderSkipped: false,
@@ -439,13 +439,13 @@ function renderChart() {
         legend: {
           position: activeChartType === 'doughnut' ? 'right' : 'bottom',
           labels: {
-            color: isDark ? chartText : '#334155',
+            color: chartText,
             boxWidth: 12,
             padding: 16,
             usePointStyle: true,
             pointStyle: 'circle',
             font: {
-              family: isDark ? 'Space Grotesk' : 'Inter',
+              family: chartFont,
               size: 12,
               weight: '600'
             }
@@ -469,17 +469,18 @@ function renderChart() {
         ? {
             x: {
               grid: { display: false },
-              ticks: { color: chartText, font: { weight: '600' } },
+              ticks: { color: chartText, font: { family: chartFont, weight: '600' } },
               border: { display: false }
             },
             y: {
               beginAtZero: true,
               grid: {
-                color: isDark ? 'rgba(183, 196, 189, 0.12)' : 'rgba(148, 163, 184, 0.2)',
+                color: cssVar('--chart-grid'),
                 drawBorder: false
               },
               ticks: {
                 color: chartText,
+                font: { family: chartFont },
                 padding: 8,
                 callback: (value) => `₹${value}`
               },
@@ -867,8 +868,8 @@ masterUpiIdInput.addEventListener('input', () => {
   recipients.replaceChildren();
   recipients.hidden = true;
 });
-themeToggleBtn.addEventListener('click', () => {
-  applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+themeSelect.addEventListener('change', () => {
+  applyTheme(themeSelect.value);
   renderChart();
 });
 pickContactBtn.addEventListener('click', pickPhoneContact);
