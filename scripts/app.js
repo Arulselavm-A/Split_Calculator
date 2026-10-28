@@ -943,7 +943,6 @@ function getPersonBalance(name) {
 }
 
 function buildPersonalMessage(name) {
-  const totalSpend = state.expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
   const masterName = getMasterMemberName();
   const balance = getPersonBalance(name);
 
@@ -951,9 +950,7 @@ function buildPersonalMessage(name) {
     return [
       `*${state.title || defaultTitle}*`,
       '',
-      `Hi ${name}, add your group members first.`,
-      '',
-      `Total spend: ${formatCurrency(totalSpend)}`
+      `Hi ${name}, add your group members first.`
     ].join('\n');
   }
 
@@ -974,9 +971,7 @@ function buildPersonalMessage(name) {
       return [
         `*${state.title || defaultTitle}*`,
         '',
-        `Hi ${name}, you should receive ${formatCurrency(Math.abs(balance))} from ${payFrom}.`,
-        '',
-        `Total spend: ${formatCurrency(totalSpend)}`
+        `Hi \`${name}\`, you should receive \`${formatCurrency(Math.abs(balance))}\` from \`${payFrom}\`.`
       ].join('\n');
     }
 
@@ -985,18 +980,14 @@ function buildPersonalMessage(name) {
       return [
         `*${state.title || defaultTitle}*`,
         '',
-        `Hi ${name}, you need to pay ${formatCurrency(Math.abs(balance))} to ${payTo}.`,
-        '',
-        `Total spend: ${formatCurrency(totalSpend)}`
+        `Hi \`${name}\`, you need to pay \`${formatCurrency(Math.abs(balance))}\` to \`${payTo}\`.`
       ].join('\n');
     }
 
     return [
       `*${state.title || defaultTitle}*`,
       '',
-      `Hi ${name}, your split is settled up.`,
-      '',
-      `Total spend: ${formatCurrency(totalSpend)}`
+      `Hi ${name}, your split is settled up.`
     ].join('\n');
   }
 
@@ -1004,9 +995,7 @@ function buildPersonalMessage(name) {
     return [
       `*${state.title || defaultTitle}*`,
       '',
-      `Hi ${name}, you should receive ${formatCurrency(Math.abs(balance))} from ${masterName}.`,
-      '',
-      `Total spend: ${formatCurrency(totalSpend)}`
+      `Hi \`${name}\`, you should receive \`${formatCurrency(Math.abs(balance))}\` from \`${masterName}\`.`
     ].join('\n');
   }
 
@@ -1017,28 +1006,24 @@ function buildPersonalMessage(name) {
     return [
       `*${state.title || defaultTitle}*`,
       '',
-      `Hi ${name}, you need to pay ${formatCurrency(Math.abs(balance))} to ${masterName}.`,
+      `Hi \`${name}\`, you need to pay \`${formatCurrency(Math.abs(balance))}\` to \`${masterName}\`.`,
       ...(paymentRequest
         ? [
             '',
-            `UPI ID: ${upiId}`,
+            `UPI ID: \`${upiId}\``,
             ...(masterMobile ? [`Mobile (UPI): +${masterMobile}`] : []),
             `Pay ${masterName}: ${paymentRequest}`,
             '',
-            `If GPay / PhonePe / Paytm blocks the link, pay ${formatCurrency(Math.abs(balance))} using the UPI ID or mobile number above.`
+            `If GPay / PhonePe / Paytm blocks the link, pay \`${formatCurrency(Math.abs(balance))}\` using the UPI ID or mobile number above.`
           ]
-        : []),
-      '',
-      `Total spend: ${formatCurrency(totalSpend)}`
+        : [])
     ].join('\n');
   }
 
   return [
     `*${state.title || defaultTitle}*`,
     '',
-    `Hi ${name}, your split is settled up.`,
-    '',
-    `Total spend: ${formatCurrency(totalSpend)}`
+    `Hi ${name}, your split is settled up.`
   ].join('\n');
 }
 
@@ -1057,6 +1042,13 @@ function shareSplitOnWhatsApp() {
     return;
   }
 
+  const masterName = getMasterMemberName();
+  const queue = [];
+  const sendAllBtn = document.createElement('button');
+  sendAllBtn.type = 'button';
+  sendAllBtn.className = 'secondary-btn whatsapp-btn';
+  recipients.appendChild(sendAllBtn);
+
   memberNumbers.forEach((member) => {
     const personalMessage = buildPersonalMessage(member.name);
     const url = `https://wa.me/${member.mobile}?text=${encodeURIComponent(personalMessage)}`;
@@ -1067,7 +1059,27 @@ function shareSplitOnWhatsApp() {
     link.rel = 'noopener noreferrer';
     link.textContent = `WhatsApp: ${member.name}`;
     recipients.appendChild(link);
+    if (member.name !== masterName) queue.push({ name: member.name, url, link });
   });
+
+  let sentCount = 0;
+  const updateSendAll = () => {
+    const next = queue[sentCount];
+    sendAllBtn.hidden = queue.length === 0;
+    sendAllBtn.disabled = !next;
+    sendAllBtn.textContent = next
+      ? `Send all: ${sentCount === 0 ? 'start with' : 'next is'} ${next.name} (${sentCount + 1} of ${queue.length})`
+      : 'All messages opened ✓';
+  };
+  sendAllBtn.addEventListener('click', () => {
+    const current = queue[sentCount];
+    if (!current) return;
+    window.open(current.url, '_blank', 'noopener,noreferrer');
+    current.link.textContent = `✓ WhatsApp: ${current.name}`;
+    sentCount += 1;
+    updateSendAll();
+  });
+  updateSendAll();
   recipients.hidden = false;
 }
 
