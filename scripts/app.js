@@ -8,7 +8,8 @@ const HISTORY_LIMIT = 5;
 const state = {
   title: defaultTitle,
   members: [...members],
-  expenses: [...defaultExpenses]
+  expenses: [...defaultExpenses],
+  payments: {}
 };
 
 let chartInstance = null;
@@ -181,7 +182,8 @@ function saveState() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       title: state.title,
       members: state.members,
-      expenses: state.expenses
+      expenses: state.expenses,
+      payments: state.payments
     }));
   } catch (error) {
     // Ignore storage quota / browser issues gracefully.
@@ -195,6 +197,7 @@ function hydrateStateFromStorage() {
     state.title = defaultTitle;
     state.members = [...members].map((member) => normalizeMember(member));
     state.expenses = [...defaultExpenses];
+    state.payments = {};
     return;
   }
 
@@ -203,6 +206,9 @@ function hydrateStateFromStorage() {
     ? savedState.members.map((member) => normalizeMember(member)).filter((member) => member.name)
     : [...members].map((member) => normalizeMember(member));
   state.expenses = Array.isArray(savedState.expenses) ? savedState.expenses : [...defaultExpenses];
+  state.payments = savedState.payments && typeof savedState.payments === 'object' && !Array.isArray(savedState.payments)
+    ? savedState.payments
+    : {};
 }
 
 function updateTitle() {
@@ -358,15 +364,18 @@ function computeSummary() {
         <div class="person-name">${person.name}</div>
         <div class="person-meta">Paid ${formatCurrency(person.paid)}</div>
         <div class="person-meta">Share ${formatCurrency(person.share)}</div>
-        <span class="amount-pill ${person.balance < 0 ? 'negative' : ''}">
-          ${person.balance >= 0 ? 'Gets back' : 'Owes'} ${formatCurrency(Math.abs(person.balance))}
+        <span class="amount-pill ${person.balance < 0 && !isMarkedPaid(person.name) ? 'negative' : ''}">
+          ${person.balance >= 0 ? 'Gets back' : isMarkedPaid(person.name) ? 'Paid ✓' : 'Owes'} ${formatCurrency(Math.abs(person.balance))}
         </span>
         ${person.balance < -0.005 && person.name !== getMasterMemberName()
-          ? `<button class="mini-btn pay-btn" type="button" data-pay-name="${escapeHtml(person.name)}">Pay options</button>`
+          ? `${isMarkedPaid(person.name) ? '' : `<button class="mini-btn pay-btn" type="button" data-pay-name="${escapeHtml(person.name)}">Pay options</button>`}
+             <button class="mini-btn pay-btn" type="button" data-paid-name="${escapeHtml(person.name)}">${isMarkedPaid(person.name) ? 'Undo paid' : 'Mark paid'}</button>`
           : ''}
       </div>
     `)
     .join('');
+
+  renderPendingPanel();
 
   categoryBreakdown.innerHTML = Object.entries(categoryTotals)
     .map(([category, amount], index) => `
@@ -761,6 +770,7 @@ function resetAllState() {
   state.title = defaultTitle;
   state.members = [...members].map((member) => normalizeMember(member));
   state.expenses = [...defaultExpenses];
+  state.payments = {};
 
   tripTitleInput.value = defaultTitle;
   personNameInput.value = '';
@@ -876,6 +886,8 @@ function addPerson() {
 function removePerson(name) {
   state.members = state.members.filter((member) => normalizeMember(member).name !== name);
 
+  delete state.payments[name];
+
   state.expenses = state.expenses.map((expense) => ({
     ...expense,
     payer: expense.payer === name ? getMemberNameList()[0] || '' : expense.payer,
@@ -929,6 +941,63 @@ function removeExpense(id) {
   renderAll();
 }
 
+function getOwedAmount(name) {
+  return Math.round(Math.max(0, -getPersonBalance(name)) * 100) / 100;
+}
+
+function isMarkedPaid(name) {
+  const owed = getOwedAmount(name);
+  return owed > 0.005 && Number(state.payments[name] || 0) >= owed - 0.005;
+}
+
+function getPendingPayers() {
+  const masterName = getMasterMemberName();
+  return getMemberNameList()
+    .filter((name) => name !== masterName && getOwedAmount(name) > 0.005 && !isMarkedPaid(name))
+    .map((name) => ({ name, owed: getOwedAmount(name) }));
+}
+
+function togglePaid(name) {
+  if (isMarkedPaid(name)) delete state.payments[name];
+  else state.payments[name] = getOwedAmount(name);
+  saveState();
+  computeSummary();
+}
+
+function renderPendingPanel() {
+  const masterName = getMasterMemberName();
+  const hasDebtors = getMemberNameList().some((name) => name !== masterName && getOwedAmount(name) > 0.005);
+  const panel = document.getElementById('pendingPanel');
+  panel.hidden = !hasDebtors;
+  if (!hasDebtors) {
+    panel.replaceChildren();
+    return;
+  }
+
+  const pending = getPendingPayers();
+  const total = pending.reduce((sum, item) => sum + item.owed, 0);
+  if (pending.length === 0) {
+    panel.innerHTML = '<h3>Pending payments</h3><p class="pending-done">Everyone has paid ✓</p>';
+    return;
+  }
+
+  panel.innerHTML = `
+    <h3>Pending payments (${pending.length}) · ${formatCurrency(total)}</h3>
+    ${pending.map((item) => {
+      const number = getWhatsAppNumber(getMemberByName(item.name));
+      const reminder = number
+        ? `<a class="mini-btn reminder-btn" target="_blank" rel="noopener noreferrer" href="https://wa.me/${number}?text=${encodeURIComponent(buildPersonalMessage(item.name, true))}">Send reminder</a>`
+        : '<span class="pending-no-number">No mobile number</span>';
+      return `
+        <div class="pending-row">
+          <span class="pending-name">${escapeHtml(item.name)}</span>
+          <strong>${formatCurrency(item.owed)}</strong>
+          ${reminder}
+          <button class="mini-btn" type="button" data-paid-name="${escapeHtml(item.name)}">Mark paid</button>
+        </div>`;
+    }).join('')}`;
+}
+
 function getPersonBalance(name) {
   const paid = state.expenses
     .filter((expense) => expense.payer === name)
@@ -942,7 +1011,7 @@ function getPersonBalance(name) {
   return paid - share;
 }
 
-function buildPersonalMessage(name) {
+function buildPersonalMessage(name, isReminder = false) {
   const masterName = getMasterMemberName();
   const balance = getPersonBalance(name);
 
@@ -1006,7 +1075,7 @@ function buildPersonalMessage(name) {
     return [
       `*${state.title || defaultTitle}*`,
       '',
-      `Hi \`${name}\`, you need to pay \`${formatCurrency(Math.abs(balance))}\` to \`${masterName}\`.`,
+      `${isReminder ? 'Gentle reminder: ' : ''}Hi \`${name}\`, you need to pay \`${formatCurrency(Math.abs(balance))}\` to \`${masterName}\`.`,
       ...(paymentRequest
         ? [
             '',
@@ -1027,22 +1096,183 @@ function buildPersonalMessage(name) {
   ].join('\n');
 }
 
+function formatPdfMoney(value) {
+  return `Rs. ${new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value || 0)}`;
+}
+
+function buildMasterReportPdf() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 40;
+  const right = pageWidth - margin;
+  let y = margin;
+
+  const names = getMemberNameList();
+  const masterName = getMasterMemberName();
+  const total = state.expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
+  const perPerson = names.length > 0 ? total / names.length : 0;
+  const debtors = names.filter((name) => name !== masterName && getOwedAmount(name) > 0.005);
+  const toCollect = debtors.reduce((sum, name) => sum + getOwedAmount(name), 0);
+  const collected = debtors.filter(isMarkedPaid).reduce((sum, name) => sum + getOwedAmount(name), 0);
+  const paidBy = names.map((name) => ({
+    name,
+    paid: state.expenses.filter((expense) => expense.payer === name).reduce((sum, expense) => sum + Number(expense.amount), 0)
+  }));
+  const categories = Object.entries(state.expenses.reduce((acc, expense) => {
+    const key = String(expense.title || '').trim() || 'Expense';
+    acc[key] = (acc[key] || 0) + Number(expense.amount);
+    return acc;
+  }, {}));
+
+  const ensure = (height) => {
+    if (y + height > pageHeight - margin) {
+      doc.addPage();
+      y = margin;
+    }
+  };
+  const heading = (title) => {
+    ensure(40);
+    y += 12;
+    doc.setFont('helvetica', 'bold').setFontSize(13).setTextColor(30, 30, 30).text(title, margin, y);
+    y += 6;
+    doc.setDrawColor(200).line(margin, y, right, y);
+    y += 16;
+  };
+  const row = (left, sub, rightText) => {
+    ensure(sub ? 32 : 20);
+    doc.setFont('helvetica', 'bold').setFontSize(11).setTextColor(30, 30, 30).text(String(left), margin, y);
+    doc.text(String(rightText), right, y, { align: 'right' });
+    if (sub) {
+      y += 13;
+      doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(110, 110, 110).text(String(sub), margin, y);
+    }
+    y += 18;
+  };
+  const bar = (label, value, max, valueText, color) => {
+    ensure(20);
+    const barX = margin + 110;
+    const barWidth = right - barX - 90;
+    doc.setFont('helvetica', 'normal').setFontSize(10).setTextColor(30, 30, 30).text(String(label), margin, y);
+    doc.setFillColor(230, 233, 231).roundedRect(barX, y - 8, barWidth, 9, 4, 4, 'F');
+    if (max > 0 && value > 0) doc.setFillColor(...color).roundedRect(barX, y - 8, Math.max(6, barWidth * (value / max)), 9, 4, 4, 'F');
+    doc.text(String(valueText), right, y, { align: 'right' });
+    y += 20;
+  };
+
+  doc.setFont('helvetica', 'bold').setFontSize(20).setTextColor(30, 30, 30).text(state.title || defaultTitle, margin, y + 6);
+  y += 26;
+  doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(110, 110, 110)
+    .text(`Master report - ${new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}`, margin, y);
+  y += 22;
+  doc.setFont('helvetica', 'normal').setFontSize(10).setTextColor(110, 110, 110).text('Total spend', margin, y);
+  doc.text('Per person', margin + 200, y);
+  y += 16;
+  doc.setFont('helvetica', 'bold').setFontSize(15).setTextColor(30, 30, 30).text(formatPdfMoney(total), margin, y);
+  doc.text(formatPdfMoney(perPerson), margin + 200, y);
+  y += 10;
+
+  if (debtors.length > 0) {
+    heading('Collection progress');
+    const percent = toCollect > 0 ? Math.round((collected / toCollect) * 100) : 0;
+    row(`${formatPdfMoney(collected)} of ${formatPdfMoney(toCollect)} collected`, `${debtors.filter(isMarkedPaid).length} of ${debtors.length} members paid`, `${percent}%`);
+    ensure(14);
+    doc.setFillColor(230, 233, 231).roundedRect(margin, y - 8, right - margin, 10, 5, 5, 'F');
+    if (collected > 0) doc.setFillColor(34, 197, 94).roundedRect(margin, y - 8, Math.max(8, (right - margin) * (collected / toCollect)), 10, 5, 5, 'F');
+    y += 14;
+  }
+
+  heading('Who owes what');
+  names.forEach((name) => {
+    const balance = getPersonBalance(name);
+    const owed = getOwedAmount(name);
+    let status = 'Settled';
+    if (balance > 0.005) status = `Gets back ${formatPdfMoney(balance)}`;
+    else if (name !== masterName && owed > 0.005) status = isMarkedPaid(name) ? `Paid ${formatPdfMoney(owed)}` : `Owes ${formatPdfMoney(owed)}`;
+    const share = state.expenses.reduce((sum, expense) => {
+      const splitMembers = expense.sharedWith.length > 0 ? expense.sharedWith : names;
+      return splitMembers.includes(name) ? sum + Number(expense.amount) / splitMembers.length : sum;
+    }, 0);
+    const paid = paidBy.find((item) => item.name === name).paid;
+    row(name === masterName ? `${name} (master)` : name, `Paid ${formatPdfMoney(paid)}  |  Share ${formatPdfMoney(share)}`, status);
+  });
+
+  heading('Who spent how much');
+  const maxPaid = Math.max(0, ...paidBy.map((item) => item.paid));
+  paidBy.forEach((item) => bar(item.name, item.paid, maxPaid, formatPdfMoney(item.paid), [90, 150, 230]));
+
+  if (categories.length > 0) {
+    heading('Spend by category');
+    categories.forEach(([category, amount]) => bar(category, amount, total, `${Math.round((amount / total) * 100)}%  ${formatPdfMoney(amount)}`, [150, 110, 200]));
+  }
+
+  heading('Expenses');
+  if (state.expenses.length === 0) row('No expenses added', '', '');
+  state.expenses.forEach((expense) => {
+    const date = Number(expense.id) > 1e12 ? `${new Date(Number(expense.id)).toLocaleDateString('en-IN', { dateStyle: 'medium' })}  |  ` : '';
+    const sharedWith = expense.sharedWith.length === 0 || expense.sharedWith.length === names.length ? 'all' : expense.sharedWith.join(', ');
+    row(expense.title, `${date}Paid by ${expense.payer}  |  Split with ${sharedWith}`, formatPdfMoney(Number(expense.amount)));
+  });
+
+  if (state.expenses.length > 0) {
+    const biggest = state.expenses.reduce((max, expense) => (Number(expense.amount) > Number(max.amount) ? expense : max));
+    const topSpender = paidBy.reduce((max, item) => (item.paid > max.paid ? item : max));
+    heading('Quick facts');
+    row('Biggest expense', '', `${biggest.title} - ${formatPdfMoney(Number(biggest.amount))}`);
+    row('Top spender', '', `${topSpender.name} - ${formatPdfMoney(topSpender.paid)}`);
+    row('Expenses / members', '', `${state.expenses.length} / ${names.length}`);
+  }
+
+  const pages = doc.getNumberOfPages();
+  for (let page = 1; page <= pages; page += 1) {
+    doc.setPage(page);
+    doc.setFont('helvetica', 'normal').setFontSize(8).setTextColor(140, 140, 140)
+      .text(`SplitMate master report - page ${page} of ${pages}`, pageWidth / 2, pageHeight - 20, { align: 'center' });
+  }
+  return doc;
+}
+
+async function sendMasterReport(masterMobile) {
+  if (!window.jspdf) {
+    window.alert('The PDF library could not be loaded. Check your internet connection and try again.');
+    return;
+  }
+  const doc = buildMasterReportPdf();
+  const fileName = `${(state.title || defaultTitle).replace(/[^\w-]+/g, '_')}-report.pdf`;
+  const file = new File([doc.output('blob')], fileName, { type: 'application/pdf' });
+  const text = `*${state.title || defaultTitle}* - master report (PDF attached)`;
+
+  if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: state.title || defaultTitle, text });
+      return;
+    } catch (error) {
+      if (error && error.name === 'AbortError') return;
+    }
+  }
+
+  // Desktop browsers cannot attach files to WhatsApp, so save the PDF and open the chat to attach it.
+  doc.save(fileName);
+  window.open(`https://wa.me/${masterMobile || ''}?text=${encodeURIComponent(`${text}\n(attach the downloaded PDF)`)}`, '_blank', 'noopener,noreferrer');
+}
+
 function shareSplitOnWhatsApp() {
   if (!saveMasterUpiId()) return;
   const recipients = document.getElementById('whatsAppRecipients');
   recipients.replaceChildren();
   recipients.hidden = true;
+  const masterName = getMasterMemberName();
   const memberNumbers = state.members
     .map((member) => ({ name: normalizeMember(member).name, mobile: getWhatsAppNumber(member) }))
-    .filter((member) => member.mobile);
+    .filter((member) => member.mobile || member.name === masterName);
 
-  if (memberNumbers.length === 0) {
+  if (memberNumbers.filter((member) => member.mobile).length === 0) {
     const message = buildPersonalMessage(getMemberNameList()[0] || '');
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
     return;
   }
 
-  const masterName = getMasterMemberName();
   const queue = [];
   const sendAllBtn = document.createElement('button');
   sendAllBtn.type = 'button';
@@ -1050,17 +1280,33 @@ function shareSplitOnWhatsApp() {
   recipients.appendChild(sendAllBtn);
 
   memberNumbers.forEach((member) => {
-    const personalMessage = buildPersonalMessage(member.name);
-    const url = `https://wa.me/${member.mobile}?text=${encodeURIComponent(personalMessage)}`;
+    const isMaster = member.name === masterName;
     const link = document.createElement('a');
     link.className = 'secondary-btn whatsapp-btn';
-    link.href = url;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    link.textContent = `WhatsApp: ${member.name}`;
+    let run;
+    if (isMaster) {
+      link.href = '#';
+      link.textContent = `Report PDF: ${member.name}`;
+      run = () => sendMasterReport(member.mobile);
+      link.addEventListener('click', (event) => {
+        event.preventDefault();
+        run();
+      });
+    } else {
+      const url = `https://wa.me/${member.mobile}?text=${encodeURIComponent(buildPersonalMessage(member.name))}`;
+      link.href = url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = `WhatsApp: ${member.name}`;
+      run = () => window.open(url, '_blank', 'noopener,noreferrer');
+    }
     recipients.appendChild(link);
-    if (member.name !== masterName) queue.push({ name: member.name, url, link });
+    if (isMaster || Math.abs(getPersonBalance(member.name)) > 0.005) {
+      queue.push({ name: member.name, link, run, isMaster, label: link.textContent });
+    }
   });
+  // The master's report goes last in the Send all sequence.
+  queue.sort((a, b) => Number(a.isMaster) - Number(b.isMaster));
 
   let sentCount = 0;
   const updateSendAll = () => {
@@ -1068,14 +1314,14 @@ function shareSplitOnWhatsApp() {
     sendAllBtn.hidden = queue.length === 0;
     sendAllBtn.disabled = !next;
     sendAllBtn.textContent = next
-      ? `Send all: ${sentCount === 0 ? 'start with' : 'next is'} ${next.name} (${sentCount + 1} of ${queue.length})`
+      ? `Send all: ${sentCount === 0 ? 'start with' : 'next is'} ${next.name}${next.isMaster ? ' (report PDF)' : ''} (${sentCount + 1} of ${queue.length})`
       : 'All messages opened ✓';
   };
   sendAllBtn.addEventListener('click', () => {
     const current = queue[sentCount];
     if (!current) return;
-    window.open(current.url, '_blank', 'noopener,noreferrer');
-    current.link.textContent = `✓ WhatsApp: ${current.name}`;
+    current.run();
+    current.link.textContent = `✓ ${current.label}`;
     sentCount += 1;
     updateSendAll();
   });
@@ -1104,8 +1350,17 @@ themeSelect.addEventListener('change', () => {
   });
 });
 personBreakdown.addEventListener('click', (event) => {
+  const paidButton = event.target.closest('[data-paid-name]');
+  if (paidButton) {
+    togglePaid(paidButton.dataset.paidName);
+    return;
+  }
   const button = event.target.closest('[data-pay-name]');
   if (button) openPayDialog(button.dataset.payName);
+});
+document.getElementById('pendingPanel').addEventListener('click', (event) => {
+  const paidButton = event.target.closest('[data-paid-name]');
+  if (paidButton) togglePaid(paidButton.dataset.paidName);
 });
 document.getElementById('payDialog').addEventListener('click', (event) => {
   if (event.target === event.currentTarget) event.currentTarget.close();
