@@ -40,8 +40,10 @@
           <button id="clearSelectedMembers" class="mini-btn muted" type="button">Clear</button>
         </div>
       </div>
-      <div id="selectedSplitSummary" class="split-summary">Selected: all members</div>
-      <div id="memberSplitList" class="split-list"></div>
+      <details id="splitAccordion" class="accordion">
+        <summary id="selectedSplitSummary" class="split-summary">Selected (0/0): none</summary>
+        <div id="memberSplitList" class="split-list"></div>
+      </details>
     </div>
 
     <button class="primary-btn full-width" type="submit">Add expense</button>

@@ -230,22 +230,24 @@ function getSelectedMembers() {
 
 function updateSelectedSplitSummary() {
   const selected = Array.from(memberSplitList.querySelectorAll('input:checked')).map((input) => input.value);
+  const count = `${selected.length}/${state.members.length}`;
 
   if (selected.length === 0) {
-    selectedSplitSummary.textContent = 'Selected: none';
+    selectedSplitSummary.textContent = `Selected (${count}): none`;
     return;
   }
 
   if (selected.length === state.members.length) {
-    selectedSplitSummary.textContent = 'Selected: all members';
+    selectedSplitSummary.textContent = `Selected (${count}): all members`;
     return;
   }
 
-  selectedSplitSummary.textContent = `Selected: ${selected.join(', ')}`;
+  selectedSplitSummary.textContent = `Selected (${count}): ${selected.join(', ')}`;
 }
 
 function renderPeopleList() {
   peopleList.innerHTML = '';
+  document.getElementById('peopleSummary').textContent = `People added (${state.members.length})`;
 
   if (state.members.length === 0) {
     peopleList.innerHTML = '<div class="empty-state">No people added yet.</div>';
@@ -781,7 +783,7 @@ function resetAllState() {
   contactPickerStatus.hidden = true;
   expenseForm.reset();
   splitModeSelect.value = 'selected';
-  selectedSplitSummary.textContent = 'Selected: all members';
+  updateSelectedSplitSummary();
 
   try {
     localStorage.removeItem(STORAGE_KEY);
@@ -964,6 +966,8 @@ function togglePaid(name) {
   computeSummary();
 }
 
+let pendingPanelOpen = false;
+
 function renderPendingPanel() {
   const masterName = getMasterMemberName();
   const hasDebtors = getMemberNameList().some((name) => name !== masterName && getOwedAmount(name) > 0.005);
@@ -976,13 +980,15 @@ function renderPendingPanel() {
 
   const pending = getPendingPayers();
   const total = pending.reduce((sum, item) => sum + item.owed, 0);
+  const open = pendingPanelOpen ? ' open' : '';
   if (pending.length === 0) {
-    panel.innerHTML = '<h3>Pending payments</h3><p class="pending-done">Everyone has paid ✓</p>';
+    panel.innerHTML = `<details class="accordion"${open}><summary>Pending payments</summary><p class="pending-done">Everyone has paid ✓</p></details>`;
     return;
   }
 
   panel.innerHTML = `
-    <h3>Pending payments (${pending.length}) · ${formatCurrency(total)}</h3>
+    <details class="accordion"${open}>
+    <summary>Pending payments (${pending.length}) · ${formatCurrency(total)}</summary>
     ${pending.map((item) => {
       const number = getWhatsAppNumber(getMemberByName(item.name));
       const reminder = number
@@ -995,7 +1001,8 @@ function renderPendingPanel() {
           ${reminder}
           <button class="mini-btn" type="button" data-paid-name="${escapeHtml(item.name)}">Mark paid</button>
         </div>`;
-    }).join('')}`;
+    }).join('')}
+    </details>`;
 }
 
 function getPersonBalance(name) {
@@ -1278,6 +1285,13 @@ function shareSplitOnWhatsApp() {
   sendAllBtn.type = 'button';
   sendAllBtn.className = 'secondary-btn whatsapp-btn';
   recipients.appendChild(sendAllBtn);
+  const chatsAccordion = document.createElement('details');
+  chatsAccordion.className = 'accordion whatsapp-chats';
+  const chatsSummary = document.createElement('summary');
+  const chatsList = document.createElement('div');
+  chatsList.className = 'whatsapp-chat-links';
+  chatsAccordion.append(chatsSummary, chatsList);
+  recipients.appendChild(chatsAccordion);
 
   memberNumbers.forEach((member) => {
     const isMaster = member.name === masterName;
@@ -1300,11 +1314,12 @@ function shareSplitOnWhatsApp() {
       link.textContent = `WhatsApp: ${member.name}`;
       run = () => window.open(url, '_blank', 'noopener,noreferrer');
     }
-    recipients.appendChild(link);
+    chatsList.appendChild(link);
     if (isMaster || Math.abs(getPersonBalance(member.name)) > 0.005) {
       queue.push({ name: member.name, link, run, isMaster, label: link.textContent });
     }
   });
+  chatsSummary.textContent = `Individual chats (${chatsList.children.length})`;
   // The master's report goes last in the Send all sequence.
   queue.sort((a, b) => Number(a.isMaster) - Number(b.isMaster));
 
@@ -1358,6 +1373,9 @@ personBreakdown.addEventListener('click', (event) => {
   const button = event.target.closest('[data-pay-name]');
   if (button) openPayDialog(button.dataset.payName);
 });
+document.getElementById('pendingPanel').addEventListener('toggle', (event) => {
+  pendingPanelOpen = event.target.open;
+}, true);
 document.getElementById('pendingPanel').addEventListener('click', (event) => {
   const paidButton = event.target.closest('[data-paid-name]');
   if (paidButton) togglePaid(paidButton.dataset.paidName);
