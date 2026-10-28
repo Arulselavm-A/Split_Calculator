@@ -51,5 +51,8 @@
 
   <select id="contactPhone" class="select-input" aria-label="Contact phone number" hidden></select>
   <output id="contactPickerStatus" aria-live="polite" hidden></output>
-  <div id="peopleList" class="people-list" aria-live="polite"></div>
+  <details id="peopleAccordion" class="accordion people-accordion">
+    <summary id="peopleSummary">People added</summary>
+    <div id="peopleList" class="people-list" aria-live="polite"></div>
+  </details>
 </section>

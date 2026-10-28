@@ -1724,8 +1724,62 @@ html.theme-switching *::after {
   border-radius: 12px;
 }
 
-.pending-panel h3 {
-  margin: 0;
+.accordion > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
+  font-weight: 700;
+}
+
+.accordion > summary::-webkit-details-marker {
+  display: none;
+}
+
+.accordion > summary::before {
+  content: '▸';
+  display: inline-block;
+  transition: transform 0.2s ease;
+}
+
+.accordion[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.whatsapp-chats {
+  flex-basis: 100%;
+}
+
+.whatsapp-chat-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.people-accordion {
+  margin-top: 16px;
+}
+
+.people-accordion .people-list {
+  margin-top: 0;
+}
+
+.accordion > summary.split-summary {
+  font-weight: 500;
+}
+
+.accordion[open] > summary {
+  margin-bottom: 10px;
+}
+
+.pending-panel .accordion {
+  display: grid;
+  gap: 8px;
+}
+
+.pending-panel .accordion > summary {
+  margin-bottom: 0;
   font-size: 0.95rem;
 }
 
