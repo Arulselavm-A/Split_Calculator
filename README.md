@@ -29,6 +29,8 @@ Phone-book access requires a supported browser (primarily Chrome on Android), a 
 
 Select the member's country and enter their local mobile number, or enter a full international number starting with `+` (for example, `+91 98765 43210`). Click **Share on WhatsApp**, then choose each member's chat link to open their personalized message. Press **Send** in WhatsApp for each recipient.
 
+Use **Send all** to step through everyone with one tap each: members who owe or are owed money get their personal message, settled members are skipped, and the master gets a **PDF report** last (collection progress, who owes what, expenses, quick facts; no phone numbers or UPI IDs). On phones the PDF opens the share sheet so you can attach it in WhatsApp; on desktop it is downloaded and the master's chat opens so you can attach it. In the summary, use **Mark paid** to tick off payments, see the **Pending payments** list, and send a **reminder** to anyone who has not paid.
+
 WhatsApp links cannot automatically send to everyone or check whether a number is registered. The recipient must have a WhatsApp account. If WhatsApp still displays a version warning with the correct international number, try an updated WhatsApp app or WhatsApp Web. Older numbers that were saved with missing digits must be removed and added again.
 
 ### Master UPI ID
